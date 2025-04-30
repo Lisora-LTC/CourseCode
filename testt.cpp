@@ -4,4 +4,6 @@ using namespace cv;
 using namespace std;
 int main(){
     cout<<"???";
+    printf("???");
+    return 0;
 }
