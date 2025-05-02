@@ -3,18 +3,21 @@
 
 #include <vector>
 #include <iostream>
+//#include <opencv2/opencv.hpp>
 
 // 定义矩阵类
 class Matrix {
 private:
-    std::vector<int> data; // 使用一维数组存储矩阵数据
+    int* data; // 使用原始指针存储矩阵数据
     int rows; // 行数
     int cols; // 列数
 
 public:
     // 构造函数
     Matrix(int rows, int cols);
-    Matrix(int rows, int cols, const int* values, int length);
+    Matrix(const Matrix& other); // 拷贝构造函数
+    Matrix& operator=(const Matrix& other); //  Z
+    ~Matrix(); // 析构函数
 
     // 获取矩阵的行数和列数
     int getRows() const;
@@ -42,6 +45,12 @@ public:
     // 3x3卷积，kernel size=3, padding=1, stride=1, dilation=1，需要传入3x3核
     Matrix convolve3x3(const Matrix& kernel) const;
 
+    // 矩阵归一化 - 将所有元素除以指定因子
+    void normalize(int factor);
+
+    // 将矩阵转换为OpenCV灰度图像
+    //cv::Mat toGrayImage() const;
+
     // 打印矩阵
     void print() const;
 
@@ -50,6 +59,8 @@ public:
 };
 
 // 声明矩阵操作相关函数
+void demo();        // demo 函数声明
+void wait_for_enter(); // 确保 wait_for_enter 函数也有声明
 void menu();        // 声明菜单显示函数
 void matriplus();   // 矩阵加法
 void nummulti();    // 数乘
@@ -59,5 +70,6 @@ void hadamulti();   // Hadamard乘积
 void conv();        // 卷积操作
 void waitAndReturnToMenu();
 bool exitFunction(); // 声明退出函数
+void inputErrorReturn();
 
 #endif // MAT_H
