@@ -1,0 +1,64 @@
+{
+    // 有关 tasks.json 格式的文档，请参见
+        // Tasks in Visual Studio Code
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "type": "shell",
+                "label": "c/cpp task",
+                "command": "C:\\MinGW64\\mingw64\\bin\\g++.exe",
+                "args": [
+                    "-g",
+                    "${file}",
+                    "-o",
+                    "${fileDirname}\\${fileBasenameNoExtension}.exe",
+
+                ],
+                "options": {
+                    "cwd": "C:\\MinGW64\\mingw64\\bin"
+                },
+                "problemMatcher": [
+                    "$gcc"
+                ],
+                "group": "build"
+            },
+            
+            {
+                "type": "shell",
+                "label": "c/cpp task",
+                "command": "C:\\MinGW64\\mingw64\\bin\\g++.exe",
+                "args": [
+                    "-o",
+                    "${fileBasenameNoExtension}",
+                    "${file}"
+                ],
+                "group": {
+                    "kind": "build",
+                    "isDefault": false
+                }
+            },
+            
+            {
+                "type": "shell",
+                "label": "c/cpp task",
+                "command": "C:\\MinGW64\\mingw64\\bin\\g++.exe",
+                "args": [
+                    "d:\\Code\\course\\lectureHomework\\Frame.cpp",
+                    "d:\\Code\\course\\lectureHomework\\mat.cpp",
+                    "d:\\Code\\course\\lectureHomework\\displayMenu.cpp",
+                    "-o",
+                    "${fileDirname}\\${fileBasenameNoExtension}.exe",
+                    "-I", "D:\\opencv\\opencv\\build\\include",
+                    "-L", "D:\\opencv\\opencv\\build\\x64\\vc15\\lib",
+                    "-l", "opencv_world341",
+                ],
+                "group": {
+                    "kind": "build",
+                    "isDefault": true
+                },
+                "problemMatcher": [
+                    "$gcc"
+                ]
+            }
+        ]
+    }
