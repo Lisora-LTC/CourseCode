@@ -17,18 +17,7 @@ void wait_for_enter()
          << endl;
 }
 
-void demo()
-{
-    // /* 对vs+opencv正确配置后方可使用，此处只给出一段读取并显示图像的参考代码，其余功能流程自行设计和查阅文献 */
-    // Mat image =
-    //     imread("demolena.jpg"); // 图像的灰度值存放在格式为Mat的变量image中
-    // imshow("Image-original", image);
-    // waitKey(0);
-
-    // 提示：Mat格式可与数组相互转换
-    cout<<"演示函数" << endl;
-    return;
-}
+// demo 函数已移动到 displayMenu.cpp 中
 
 int main()
 {
@@ -48,10 +37,8 @@ int main()
         cout << choice << endl; // 显示用户输入的字符
         if (choice == '0') // 选择退出
         {
-            char ch;
-            cout << "\n 确定退出吗?确定请输入y" << endl;
-            cin >> ch;
-            if (ch == 'y' || ch == 'Y'){
+            cout << "\n 确定退出吗?按回车键确认退出，按其他键取消" << endl;
+            if (_getch() == '\r'){ // 检测是否按下回车键
                 break;
             }else{
                 continue;

@@ -1,24 +1,48 @@
 #include "mat.h"
 #include <stdexcept>
+#include <limits> // 添加这一行
+using namespace std;
 
-// 构造函数
-Matrix::Matrix(int rows, int cols) : rows(rows), cols(cols), data(rows * cols, 0) {}
+// 独立的判断函数
+bool isValidSize(int rows, int cols) {
+    return rows > 0 && cols > 0;
+}
 
 // 新的构造函数，接收一维数组指针和长度
-Matrix::Matrix(int rows, int cols, const int* values, int length) : rows(rows), cols(cols), data(rows * cols, 0) {
-    if (length != rows * cols) {
-        throw std::invalid_argument("输入数据长度与矩阵尺寸不匹配");
+Matrix::Matrix(int rowsinn, int colsinn) : rows(rowsinn), cols(colsinn), data(0) {
+    if (!isValidSize(rowsinn, colsinn)) {
+        throw std::invalid_argument("矩阵的行数和列数必须大于0。");
     }
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            set(i, j, values[i * cols + j]);
-        }
-    }
+    data = new int[rows * cols];
+}
+
+Matrix::~Matrix() {
+    delete[] data;
 }
 
 // 获取矩阵的行数和列数
 int Matrix::getRows() const { return rows; }
 int Matrix::getCols() const { return cols; }
+
+// 输入矩阵
+void Matrix::input() {
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            int val;
+            while (true) {
+                cin >> val;
+                if (cin.fail()) {
+                    cin.clear(); // 清除错误标志
+                    cin.ignore(numeric_limits<streamsize>::max(), '\n'); // 丢弃错误输入
+                    cout << "输入无效，请重新输入一个整数: ";
+                } else {
+                    break;
+                }
+            }
+            set(i, j, val);
+        }
+    }
+}
 
 // 获取和设置元素
 int Matrix::get(int i, int j) const {
@@ -137,23 +161,38 @@ Matrix Matrix::convolve3x3(const Matrix& kernel) const {
     return result;
 }
 
+// 矩阵归一化方法
+void Matrix::normalize(int factor) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            int value = get(i, j) / factor;
+            set(i, j, value);
+        }
+    }
+}
+
+// // 将矩阵转换为OpenCV灰度图像
+// cv::Mat Matrix::toGrayImage() const {
+//     using namespace cv; // 在函数内部使用命名空间
+//     Mat resultImage = Mat::zeros(rows, cols, CV_8UC1);
+//     for (int i = 0; i < rows; i++) {
+//         for (int j = 0; j < cols; j++) {
+//             int value = get(i, j);
+//             // 确保灰度值在有效范围内
+//             value = std::min(255, std::max(0, value));
+//             resultImage.at<uchar>(i, j) = static_cast<uchar>(value);
+//         }
+//     }
+//     return resultImage;
+// }
+
 // 打印矩阵
 void Matrix::print() const {
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
-            std::cout << get(i, j) << " ";
+            cout << get(i, j) << " ";
         }
-        std::cout << std::endl;
+        cout << endl;
     }
 }
 
-// 输入矩阵
-void Matrix::input() {
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            int val;
-            std::cin >> val;
-            set(i, j, val);
-        }
-    }
-}
