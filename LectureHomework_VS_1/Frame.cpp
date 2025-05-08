@@ -1,8 +1,8 @@
 #include <conio.h>
 #include <iostream>
 #include "mat.h" // 包含矩阵操作头文件
-//#include <opencv2/opencv.hpp>
-//using namespace cv;
+#include <opencv2/opencv.hpp>
+using namespace cv;
 using namespace std;
 
 // 此框架若有不完美可以在作业中任意修改
@@ -32,7 +32,7 @@ int main()
 
         // 按要求输入菜单选择项choice
         char choice;
-        cout << "请输入菜单选择项 (0-7): ";
+        cout << "请输入菜单选择项 (0-8): ";
         choice = _getch(); // 不需要按回车即可输入
         cout << choice << endl; // 显示用户输入的字符
         if (choice == '0') // 选择退出
@@ -67,6 +67,9 @@ int main()
             break;
         case '7':
             demo();
+            break;
+        case '8':
+            otsu(); // 新增otsu算法调用
             break;
         default:
             cout << "\n 输入错误，请从新输入" << endl;

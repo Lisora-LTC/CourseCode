@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <iostream>
-//#include <opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 
 // 定义矩阵类
 class Matrix {
@@ -49,13 +49,16 @@ public:
     void normalize(int factor);
 
     // 将矩阵转换为OpenCV灰度图像
-    //cv::Mat toGrayImage() const;
+    cv::Mat toGrayImage() const;
 
     // 打印矩阵
     void print() const;
 
     // 输入矩阵元素
     void input();
+
+    // Otsu算法：对当前矩阵进行二值化，返回二值化后的矩阵
+    Matrix otsuThreshold() const;
 };
 
 // 声明矩阵操作相关函数
@@ -71,5 +74,6 @@ void conv();        // 卷积操作
 void waitAndReturnToMenu();
 bool exitFunction(); // 声明退出函数
 void inputErrorReturn();
+void otsu(); // otsu算法函数声明
 
 #endif // MAT_H
