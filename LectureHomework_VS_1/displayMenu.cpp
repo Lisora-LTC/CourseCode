@@ -1,9 +1,9 @@
 #include "mat.h"
 #include <iostream>
 #include <conio.h>
-//#include <opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 
-//using namespace cv;
+using namespace cv;
 using namespace std;
 
 // 修改：exitFunction 返回 bool
@@ -241,93 +241,162 @@ void conv() {
         cout << "发生错误: " << e.what() << endl;
     }
 }
-
 void demo()
 {
-    // if (!pre("演示")) return; // 调用 pre 函数，可以选择退出
-    // system("cls"); // 清屏
-    // cout << "正在进行演示操作" << endl;
-    
-    // /* 对vs+opencv正确配置后方可使用，此处只给出一段读取并显示图像的参考代码，其余功能流程自行设计和查阅文献 */
-    // Mat image =
-    //     imread("demolena.jpg", IMREAD_GRAYSCALE); // 直接以灰度模式读取图像
-    // if (image.empty()) {
-    //     cout << "无法打开图像文件！" << endl;
-    //     waitAndReturnToMenu();
-    //     return;
-    // }
-    // imshow("Image-original", image);
-    // cout << "按任意键关闭图像窗口..." << endl;
-    // waitKey(); // 等待用户按键
-    
-    // // 将灰度图像数据转存到Matrix类中
-    // int rows = image.rows;
-    // int cols = image.cols;
-    // cout << "图像尺寸: " << rows << "×" << cols << " 像素" << endl;
-    
-    // // 创建与图像尺寸相同的Matrix对象
-    // Matrix imageMatrix(rows, cols);
-    
-    // // 将灰度值从Mat复制到Matrix
-    // for (int i = 0; i < rows; i++) {
-    //     for (int j = 0; j < cols; j++) {
-    //         // 获取像素灰度值(0-255)
-    //         int pixelValue = static_cast<int>(image.at<uchar>(i, j));
-    //         // 设置到我们的Matrix对象中
-    //         imageMatrix.set(i, j, pixelValue);
-    //     }
-    // }
-    
-    // cout << "已将图像灰度值存入Matrix对象" << endl;
-    
-    // // 创建3x3的全1卷积核
-    // cout << "创建3x3的全1卷积核..." << endl;
-    // Matrix kernel(3, 3);
-    // for (int i = 0; i < 3; i++) {
-    //     for (int j = 0; j < 3; j++) {
-    //         kernel.set(i, j, 1);
-    //     }
-    // }
-    
-    // cout << "卷积核矩阵:" << endl;
-    // kernel.print();
-    
-    // // 对图像矩阵执行卷积操作
-    // cout << "执行卷积操作..." << endl;
-    // Matrix convResult = imageMatrix.convolve3x3(kernel);
-    
-    // // 使用新方法将卷积结果归一化(除以9)
-    // cout << "将卷积结果归一化(除以9)..." << endl;
-    // convResult.normalize(9);
-    
-    // // 使用新方法将矩阵转换为灰度图像
-    // Mat resultImage = convResult.toGrayImage();
-    
-    // // 显示卷积后的图像
-    // imshow("Image-after-convolution", resultImage);
-    // cout << "按任意键关闭卷积结果窗口..." << endl;
-    // waitKey();
-    
-    // // 保存卷积后的图像
-    // imwrite("convolution_result.jpg", resultImage);
-    // cout << "已将卷积结果保存为convolution_result.jpg" << endl;
+    if (!pre("演示")) return; // 调用 pre 函数，可以选择退出
+    system("cls"); // 清屏
+    cout << "正在进行演示操作" << endl;
 
-    // destroyAllWindows(); // 关闭所有由 OpenCV 创建的窗口
+    Mat image = imread("demolena.jpg", IMREAD_GRAYSCALE); // 直接以灰度模式读取图像
+    if (image.empty()) {
+        cout << "无法打开图像文件！" << endl;
+        waitAndReturnToMenu();
+        return;
+    }
+    imshow("Image-original", image);
+    moveWindow("Image-original", 100, 100); // 原图像在最左上角独自成列
 
-    cout<<"演示函数执行完毕" << endl; // 修改提示信息
-    waitAndReturnToMenu(); // 等待用户按任意键返回主菜单
+    int rows = image.rows;
+    int cols = image.cols;
+    cout << "图像尺寸: " << rows << "×" << cols << " 像素" << endl;
+
+    Matrix imageMatrix(rows, cols);
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            int pixelValue = static_cast<int>(image.at<uchar>(i, j));
+            imageMatrix.set(i, j, pixelValue);
+        }
+    }
+    cout << "已将图像灰度值存入Matrix对象" << endl;
+
+    // 用6*9的数组存储6个3x3卷积核
+    int kernels[6][9] = {
+        { 1, 1, 1, 1, 1, 1, 1, 1, 1 },
+        { -1, -2, -1, 0, 0, 0, 1, 2, 1 },
+        { -1, 0, 1, -2, 0, 2, -1, 0, 1 },
+        { -1, -1, -1, -1, 9, -1, -1, -1, -1 },
+        { -1, -1, 0, -1, 0, 1, 0, 1, 1 },
+        { 1, 2, 1, 2, 4, 2, 1, 2, 1 }
+    };
+    const char* kernelNames[6] = {
+        "全1核", "Sobel Y", "Sobel X", "锐化", "自定义", "高斯模糊"
+    };
+
+    for (int k = 0; k < 6; ++k) {
+        cout << "\n正在使用卷积核: " << kernelNames[k] << endl;
+        Matrix kernel(3, 3);
+        // 按顺序赋值
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j)
+                kernel.set(i, j, kernels[k][i * 3 + j]);
+        kernel.print();
+
+        Matrix convResult = imageMatrix.convolve3x3(kernel);
+
+        // 归一化因子
+        int normDiv = 1;
+        if (k == 0) normDiv = 9; // 全1核
+        if (k == 5) normDiv = 16; // 高斯模糊
+        convResult.normalize(normDiv);
+
+        Mat resultImage = convResult.toGrayImage();
+        string winName = string("Conv-") + kernelNames[k];
+        imshow(winName, resultImage);
+
+        // 指定窗口位置，原图在最左上角，卷积结果在右面按2行3列排列
+        moveWindow(winName, 500 + (k % 3) * 350, 100 + (k / 3) * 350);
+
+        // string saveName = string("convolution_result_") + to_string(k + 1) + ".jpg";
+        // imwrite(saveName, resultImage);
+        // cout << "已保存: " << saveName << endl;
+    }
+
+    cout << "按任意键关闭所有卷积结果窗口..." << endl;
+    waitKey();
+    destroyAllWindows(); // 关闭所有由 OpenCV 创建的窗口
+    cout << "演示函数执行完毕" << endl;
+    waitAndReturnToMenu();
     return;
 }
 
-//不要对下面的函数做任何调整
+void otsu() {
+    if (!pre("Otsu算法")) return; // 调用 pre 函数，可以选择退出
+    system("cls"); // 清屏
+    cout << "正在进行Otsu算法操作" << endl;
+
+    // 图片文件名列表
+    vector<string> filenames = {
+        "demolena.jpg", "snowball.jpg", "polyhedrosis.jpg", "ship.jpg", "brain.jpg"
+    };
+
+    vector<cv::Mat> originals;
+    vector<cv::Mat> results;
+
+    for (int idx = 0; idx < filenames.size(); ++idx) {
+        string fname = filenames[idx];
+        Mat image = imread(fname, IMREAD_GRAYSCALE);
+        if (image.empty()) {
+            cout << "无法打开图像文件: " << fname << endl;
+            originals.push_back(Mat::zeros(100, 100, CV_8UC1)); // 占位
+            results.push_back(Mat::zeros(100, 100, CV_8UC1));
+            continue;
+        }
+        originals.push_back(image);
+
+        int rows = image.rows;
+        int cols = image.cols;
+        Matrix mat(rows, cols);
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                int pixelValue = static_cast<int>(image.at<uchar>(i, j));
+                mat.set(i, j, pixelValue);
+            }
+        }
+        Matrix result = mat.otsuThreshold();
+        results.push_back(result.toGrayImage());
+    }
+
+    // 控制窗口位置
+    int x_offset = 100;
+    int y_offset1 = 100;
+    int y_offset2 = 150 + originals[0].rows;
+    int gap = 20;
+
+    int cur_x1 = x_offset;
+    int cur_x2 = x_offset;
+
+    for (int i = 0; i < originals.size(); ++i) {
+        string winName1 = "原图" + to_string(i+1);
+        imshow(winName1, originals[i]);
+        moveWindow(winName1, cur_x1, y_offset1);
+        cur_x1 += originals[i].cols + gap;
+    }
+    for (int i = 0; i < results.size(); ++i) {
+        string winName2 = "Otsu结果" + to_string(i+1);
+        imshow(winName2, results[i]);
+        moveWindow(winName2, cur_x2, y_offset2);
+        cur_x2 += results[i].cols + gap;
+    }
+
+    cout << "Otsu算法操作完成。" << endl;
+    cout << "按任意键关闭所有窗口..." << endl;
+    waitKey(0);
+    destroyAllWindows();
+    waitAndReturnToMenu();
+}
+
 void menu() {
-    cout << "菜单选项：" << endl;
-    cout << "1. 矩阵加法" << endl;
-    cout << "2. 数乘" << endl;
-    cout << "3. 矩阵转置" << endl;
-    cout << "4. 矩阵乘法" << endl;
-    cout << "5. Hadamard乘积" << endl;
-    cout << "6. 卷积操作" << endl;
-    cout << "7. 示例演示" << endl;
-    cout << "0. 退出程序" << endl;
+    cout << "*****************************************" << endl;
+    cout << "*                                       *" << endl;
+    cout << "*  1. 矩阵加法        2. 数乘           *" << endl;
+    cout << "*                                       *" << endl;
+    cout << "*  3. 矩阵转置        4. 矩阵乘法       *" << endl;
+    cout << "*                                       *" << endl;
+    cout << "*  5. Hadamard乘积    6. 卷积操作       *" << endl;
+    cout << "*                                       *" << endl;
+    cout << "*  7. 示例演示        8. Otsu算法       *" << endl;
+    cout << "*                                       *" << endl;
+    cout << "*  0. 退出程序                          *" << endl;
+    cout << "*                                       *" << endl;
+    cout << "*****************************************" << endl;
 }
