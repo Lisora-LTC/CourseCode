@@ -7,6 +7,7 @@
       "command": "g++",
       "args": [
         "Menu.cpp",
+        "playGame.cpp",
         "-o",
         "2048Game.exe"
       ],
