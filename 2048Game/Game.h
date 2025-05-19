@@ -6,7 +6,7 @@
 #include <Windows.h>
 #include <iomanip>
 
-void input_judge(char inn, int &exitcode);
+void input_judge(int board [4][4],char inn, int &exitcode);
 bool exit_confirm();
 void play_game();
 
