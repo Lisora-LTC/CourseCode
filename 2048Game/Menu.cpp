@@ -2,53 +2,14 @@
 #include <conio.h>
 #include <Windows.h>
 #include <iomanip>
+#include "Game.h"
 using namespace std;
 
 // 请尽量不要使用全局变量
-
-void wait_for_enter();
-void print_menu();
-void print_help();
-void print_exit();
-void print_interface(int board[4][4], int score, int step);
-void play_game();
-
-void play_game()
-{
-	// 变量声明
-	int board[4][4] = {}; // 4*4的棋盘
-	int score = 0;		  // 分数
-	int step = 0;		  // 步数
-	char choice = '\0';	  // 用户选择
-
-	// 游戏初始化，包括生成随机数等操作
-
-	// 打印游戏界面
-	print_interface(board, score, step);
-
-	while (1)
-	{
-		// 获取用户输入
-		choice = _getch();
-		
-		// 根据用户输入进行相应操作
-
-		// 更新相关数据
-
-		// 打印游戏界面
-		print_interface(board, score, step);
-
-		// 判断游戏是否结束，如果结束则跳出循环
-
-	}
-
-	// 游戏结束
-	print_exit();
-}
-
 int main()
 {
 	char choice = '\0';
+	bool exitProgram=0;
 	// 设置控制台标题为2048
 	SetConsoleTitle(TEXT("2048"));
 	// 主循环
@@ -68,9 +29,17 @@ int main()
 		case 'b':
 			print_help();
 			break;
+		case 'c':
+			if(exit_confirm()){
+				exitProgram=1;
+			}
+			break;
 		default:
 			cout << "\n输入错误，请从新输入" << endl;
 			wait_for_enter();
+		}
+		if(exitProgram){
+			break;
 		}
 	}
 	return 0;
@@ -162,7 +131,7 @@ void print_interface(int board[4][4], int score, int step)
 	SetConsoleTextAttribute(handle_out, FOREGROUND_RED | FOREGROUND_GREEN);
 	// 打印游戏界面
 	cout << "            --------------------------------------------\n";
-	cout << "            分数：" << setw(6) << score << "              步数：" << setw(6) << step << endl;
+	cout << "            分数：" << setw(6) << score << "              步数：" << setw(6) << step << endl; //右对齐
 	cout << "            --------------------------------------------\n";
 	cout << "            ********************************************\n";
 	// 设置控制台文字颜色
@@ -194,4 +163,12 @@ void print_interface(int board[4][4], int score, int step)
 
 	// 恢复控制台文字颜色为默认颜色
 	SetConsoleTextAttribute(handle_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+}
+bool exit_confirm(){
+    cout << endl << "确认退出游戏吗？按回车键确认，按其他键取消。" << endl;
+    char confirm = _getch();
+    if (confirm == '\r') {
+        return true;
+    }
+    return false;
 }
