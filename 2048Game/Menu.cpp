@@ -6,6 +6,8 @@
 using namespace std;
 
 // 请尽量不要使用全局变量
+
+
 int main()
 {
 	char choice = '\0';
@@ -39,6 +41,7 @@ int main()
 			wait_for_enter();
 		}
 		if(exitProgram){
+			print_exit();
 			break;
 		}
 	}
@@ -124,7 +127,7 @@ void print_exit()
 void print_interface(int board[4][4], int score, int step)
 {
 	// 清屏
-	system("CLS");
+	clear_screen_alternative();
 	//获取标准输入设备句柄
 	HANDLE handle_out = GetStdHandle(STD_OUTPUT_HANDLE);
 	// 设置控制台文字颜色
@@ -171,4 +174,12 @@ bool exit_confirm(){
         return true;
     }
     return false;
+}
+// 函数定义：清屏（备选方案）
+void clear_screen_alternative() {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    COORD Position;
+    Position.X = 0;
+    Position.Y = 0;
+    SetConsoleCursorPosition(hOut, Position);
 }
