@@ -258,7 +258,7 @@ bool findMax(int board[4][4]) {
             }
         }
     }
-    return maxVal >= 16;
+    return maxVal >= 2048;
 }
 
 bool is_game_over(int board[4][4]) {//检查是否无路可走
