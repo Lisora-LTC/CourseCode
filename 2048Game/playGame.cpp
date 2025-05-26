@@ -10,11 +10,13 @@ void play_game()
 {
 	// 变量声明
 	int board[4][4] = {0}; // 4*4的棋盘
-	int score = 0;		  // 分数
+	long long score = 0;		  // 分数
 	int step = 0;		  // 步数
 	char choice = '\0';	  // 用户选择
     int exitcode=0;
     bool realmerged=0;
+    long long now_score=0;
+    bool continued=0;
 	// 游戏初始化，包括生成随机数等操作
     initialize_board(board);
 	// 打印游戏界面
@@ -27,13 +29,15 @@ void play_game()
 		choice = _getch();
 		
 		// 根据用户输入进行相应操作
-        input_judge(board,choice,exitcode);
-
+        now_score=0;
+        input_judge(board,now_score,choice,exitcode);
         // 判断游戏是否结束，如果结束则跳出循环
         if(exitcode==1){
             return;
         }
         if(exitcode==3){
+            score+=now_score;
+            step++;
             random_Generate(board);
         }
 		
@@ -48,11 +52,30 @@ void play_game()
                 return; // 游戏结束返回主菜单
             }
         }
-        if(exitcode==5){
-            cout << "恭喜你赢了！按下任意键返回菜单" << endl;
-            _getch(); // 等待用户按下任意键
-            print_exit();
-            return;   // 游戏结束返回主菜单
+        if(continued==0&&findMax(board)){
+            exitcode=5;
+        }
+        if(exitcode==5&&continued==0){
+            continued=1;
+            cout << "恭喜你赢了！请选择是否继续游戏，按上下左右继续，按下其他键返回" << endl;
+            choice = _getch(); // 等待按下任意键
+            if (choice == 0 || choice == (char)224) { // 特殊键的前导码
+                choice = _getch(); // 获取真正的键码
+            }
+            if (choice == 72 || choice == 80 || choice == 75 || choice == 77) { // 上下左右键
+                // 继续游戏
+                cout << "继续游戏！" << endl;
+                exitcode=6;
+            }else{
+                print_exit();
+                return;   // 游戏结束返回主菜单
+            }
+            
+        }
+        if(exitcode==6){
+            print_interface(board, score, step);
+            cout << string(80, ' ')<<endl; // 输出空格覆盖提示信息
+            cout << string(80, ' ');
         }
 	}
 }
@@ -105,7 +128,7 @@ void random_Generate(int board[4][4]){
     
 }
 
-void num_move(int board[4][4], int type, bool &realmerged) {
+void num_move(int board[4][4], int type,long long &now_score, bool &realmerged) {
     int original_board[4][4];
     // 1. 记录棋盘的原始状态
     for (int r = 0; r < 4; ++r) {
@@ -145,6 +168,7 @@ void num_move(int board[4][4], int type, bool &realmerged) {
         while (last < idx) {
             if (last + 1 < idx && tmp[last] == tmp[last + 1]) {
                 merged_elements[m++] = tmp[last] * 2;
+                now_score+= tmp[last] * 2;
                 last += 2;
             } else {
                 merged_elements[m++] = tmp[last++];
@@ -182,7 +206,7 @@ void num_move(int board[4][4], int type, bool &realmerged) {
     
 }
 
-void input_judge(int board[4][4], char &inn, int &exitcode) {
+void input_judge(int board[4][4], long long &now_score,char &inn, int &exitcode) {
     exitcode=3;
     bool realmerged=0;
     if (inn == 0 || inn == (char)224) { // 特殊键的前导码
@@ -191,20 +215,23 @@ void input_judge(int board[4][4], char &inn, int &exitcode) {
     switch (inn) {
     case 27: // ESC 键
         if (exit_confirm()) {
+            print_exit();
             exitcode = 1; // esc 退出
+        }else{
+            exitcode =6;//覆盖提示信息
         }
         break;
     case 72: // 上键
-        num_move(board, 0,realmerged); // 0=up
+        num_move(board, 0, now_score, realmerged); // 0=up
         break;
     case 80: // 下键
-        num_move(board, 1,realmerged); // 1=down
+        num_move(board, 1, now_score,realmerged); // 1=down
         break;
     case 75: // 左键
-        num_move(board, 2,realmerged); // 2=left
+        num_move(board, 2, now_score,realmerged); // 2=left
         break;
     case 77: // 右键
-        num_move(board, 3,realmerged); // 3=right
+        num_move(board, 3, now_score,realmerged); // 3=right
         break;
     default:
         input_fault();
@@ -213,9 +240,6 @@ void input_judge(int board[4][4], char &inn, int &exitcode) {
     }
     if(realmerged==0 && exitcode == 3){
         exitcode=4;//没有合并，不生成
-    }
-    if(findMax(board)){
-        exitcode=5;
     }
     return;
 }
@@ -234,7 +258,7 @@ bool findMax(int board[4][4]) {
             }
         }
     }
-    return maxVal >= 2048;
+    return maxVal >= 16;
 }
 
 bool is_game_over(int board[4][4]) {//检查是否无路可走
