@@ -166,6 +166,7 @@ void print_interface(int board[4][4], int score, int step)
 
 	// 恢复控制台文字颜色为默认颜色
 	SetConsoleTextAttribute(handle_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+
 }
 bool exit_confirm(){
     cout << endl << "确认退出游戏吗？按回车键确认，按其他键取消。" << endl;
