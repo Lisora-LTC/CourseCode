@@ -1,51 +1,50 @@
 #include <iostream>
 #include <easyx.h>
 #include <tchar.h>
+#include "Solitare.h"
 using namespace std;
 
-void drawButton(int x, int y, int width, int height, const TCHAR* text) {
-    setfillcolor(RGB(255, 255, 0)); // 按钮颜色改为黄色
-    solidrectangle(x, y, x + width, y + height);
-    settextstyle(30, 0, _T("Arial")); // 调整按钮文字大小
-    settextcolor(BLACK); // 字体颜色改为黑色
-    outtextxy(x + width / 2 - textwidth(text) / 2, y + height / 2 - textheight(text) / 2, text);
-}
-
-void checkExitButton(int mouseX, int mouseY) {
-    // 检测是否点击了“退出游戏”按钮
-    int buttonX = 560, buttonY = 400, buttonWidth = 160, buttonHeight = 50;
-    if (mouseX >= buttonX && mouseX <= buttonX + buttonWidth && mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
-        closegraph();
-        exit(0); // 结束程序
-    }
-}
 
 int main() {
+    init();
+    mainMenu();
+    return 0;
+}
+
+void init(){ //初始化图形界面
+
     // 获取屏幕分辨率
-    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int screenHeight = GetSystemMetrics(SM_CYSCREEN);
 
-    // 计算窗口位置，使其居中
-    int windowWidth = 1280;
-    int windowHeight = 720;
-    int windowX = (screenWidth - windowWidth) / 2;
-    int windowY = (screenHeight - windowHeight) / 2;
+        // 计算窗口位置，使其居中
+        int windowWidth = 1280;
+        int windowHeight = 720;
+        int windowX = (screenWidth - windowWidth) / 2;
+        int windowY = (screenHeight - windowHeight) / 2;
 
-    // 设置窗口位置并初始化图形窗口
-    HWND hwnd = initgraph(windowWidth, windowHeight);
-    SetWindowPos(hwnd, HWND_TOP, windowX, windowY, windowWidth, windowHeight, SWP_SHOWWINDOW);
+        // 设置窗口位置并初始化图形窗口
+        HWND hwnd = initgraph(windowWidth, windowHeight);
+        SetWindowPos(hwnd, HWND_TOP, windowX, windowY, windowWidth, windowHeight, SWP_SHOWWINDOW);
 
-    setbkcolor(WHITE); // 背景颜色改为白色
-    cleardevice();
+        setbkcolor(WHITE); // 背景颜色改为白色
+        cleardevice();
 
+}
+
+void mainMenu(){ //渲染主菜单
     // 设置标题
     settextstyle(60, 0, _T("Arial")); // 增大标题文字大小
     settextcolor(BLACK); // 字体颜色改为黑色
     outtextxy(1280 / 2 - textwidth(_T("孔明棋")) / 2, 100, _T("孔明棋"));
 
+    // 创建按钮对象
+    Button startButton(560, 300, 160, 50, _T("开始游戏"));
+    Button exitButton(560, 400, 160, 50, _T("退出游戏"));
+
     // 绘制按钮
-    drawButton(560, 300, 160, 50, _T("开始游戏"));
-    drawButton(560, 400, 160, 50, _T("退出游戏"));
+    startButton.draw();
+    exitButton.draw();
 
     while (true) {
         // 检测鼠标点击事件
@@ -53,11 +52,46 @@ int main() {
             POINT pt;
             GetCursorPos(&pt);
             ScreenToClient(GetForegroundWindow(), &pt);
-            checkExitButton(pt.x, pt.y); // 检测是否点击了“退出游戏”按钮
+            //checkExitButton(pt.x, pt.y); // 检测是否点击了“退出游戏”按钮
+            if(startButton.isClicked(pt.x, pt.y)){
+                chooseGame();
+            }
+            if(exitButton.isClicked(pt.x, pt.y)){
+                closegraph(); // 关闭图形化窗口
+                exit(0); // 直接终止程序运行
+            }
         }
         Sleep(100); // 等待事件
     }
+    return;
+}
 
-    closegraph();
-    return 0;
+void chooseGame(){
+    cleardevice(); // 清屏，避免页面组件遮挡
+
+    // 设置标题
+    settextstyle(60, 0, _T("Arial")); // 增大标题文字大小
+    settextcolor(BLACK); // 字体颜色改为黑色
+    outtextxy(1280 / 2 - textwidth(_T("选择游戏")) / 2, 100, _T("选择游戏"));
+
+    // 创建返回按钮
+    Button returnButton(20, 20, 100, 40, _T("返回"));
+
+    // 绘制返回按钮
+    returnButton.draw();
+
+    while (true) {
+        // 检测鼠标点击事件
+        if (GetAsyncKeyState(VK_LBUTTON)) {
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(GetForegroundWindow(), &pt);
+            if (returnButton.isClicked(pt.x, pt.y)) {
+                cleardevice();
+                mainMenu();
+                return;
+            }
+        }
+        Sleep(100); // 等待事件
+    }
 }
