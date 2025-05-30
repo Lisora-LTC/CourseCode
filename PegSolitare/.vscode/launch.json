@@ -7,7 +7,7 @@
             "request": "launch",           
             "targetArchitecture": "x86", 
             // 要进行调试的可执行文件的路径               
-            "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
+            "program": "${fileDirname}\\output.exe",
             // 注意!!!修改我    gdb调试器路径，这里选择TDM-GCC安装目录下的gdb
             "miDebuggerPath":"D:\\codeConfiguration\\TDM-GCC-64\\bin\\gdb.exe",
             "args": [],                            

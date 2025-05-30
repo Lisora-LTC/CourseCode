@@ -11,11 +11,10 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${file}",
+                "*.cpp", // 编译文件夹下的所有 .cpp 文件
                 "-o",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe",
-                "-leasyx",
-                //"-mwindows"
+                "${workspaceFolder}/output.exe", // 输出为 output.exe
+                "-leasyx"
             ],
             "options": {
                 "cwd": "${fileDirname}"
