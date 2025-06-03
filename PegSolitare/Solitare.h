@@ -23,25 +23,19 @@ class Chess {
     // 类内部暂时不需要定义
 };
 
-// 状态枚举
-enum GameState {
-    MAIN_MENU,
-    CHOOSE_GAME,
-    EXIT
-};
-
 // 状态节点类
 class StateNode {
 public:
     virtual void render() = 0; // 渲染页面
-    virtual void handleEvent(GameState& currentState) = 0; // 处理事件并切换状态
+    virtual StateNode* handleEvent() = 0; // 处理事件并返回下一个状态
+    virtual ~StateNode() = default;
 };
 
 // 主菜单状态类
 class MainMenuState : public StateNode {
 public:
     void render() override;
-    void handleEvent(GameState& currentState) override;
+    StateNode* handleEvent() override;
 private:
     Button startButton = Button(560, 300, 160, 50, _T("开始游戏"));
     Button exitButton = Button(560, 400, 160, 50, _T("退出游戏"));
@@ -53,7 +47,7 @@ private:
     Button returnButton = Button(20, 20, 100, 40, _T("返回"));
 public:
     void render() override;
-    void handleEvent(GameState& currentState) override;
+    StateNode* handleEvent() override;
 };
 
 // 退出状态类
@@ -64,7 +58,7 @@ private:
 
 public:
     void render() override;
-    void handleEvent(GameState& currentState) override;
+    StateNode* handleEvent() override;
 };
 
 void init();       // 初始化图形界面
@@ -72,8 +66,5 @@ void init();       // 初始化图形界面
 extern MainMenuState mainMenu;
 extern ChooseGameState chooseGame;
 extern ExitState exitState;
-
-// Global state map declaration
-extern unordered_map<GameState, StateNode*> stateMap;
 
 #endif // SOLITARE_H
