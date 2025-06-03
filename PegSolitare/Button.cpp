@@ -7,10 +7,14 @@ Button::Button(int x, int y, int width, int height, const TCHAR* text)
     : x(x), y(y), width(width), height(height), text(text) {}
 
 void Button::draw() const {
-    setfillcolor(RGB(255, 255, 0)); // 按钮颜色改为黄色
+    // 蓝底白字按钮，带深蓝边框
+    setfillcolor(RGB(0, 120, 215));
     solidrectangle(x, y, x + width, y + height);
-    settextstyle(30, 0, _T("Arial")); // 调整按钮文字大小
-    settextcolor(BLACK); // 字体颜色改为黑色
+    setlinecolor(RGB(0, 84, 153));
+    rectangle(x, y, x + width, y + height);
+    settextstyle(28, 0, _T("微软雅黑")); // 使用微软雅黑字体
+    settextcolor(WHITE); // 字体颜色为白色
+    setbkmode(TRANSPARENT); // 文字背景透明
     outtextxy(x + width / 2 - textwidth(text) / 2, y + height / 2 - textheight(text) / 2, text);
 }
 
