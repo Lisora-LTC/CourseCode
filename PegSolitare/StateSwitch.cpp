@@ -13,9 +13,12 @@ ExitState exitState;
 // MainMenuState
 void MainMenuState::render() {
     cleardevice(); // 清屏
-    settextstyle(60, 0, _T("Arial"));
-    settextcolor(BLACK);
-    outtextxy(1280 / 2 - textwidth(_T("孔明棋")) / 2, 100, _T("孔明棋"));
+    // 顶部深蓝条
+    setfillcolor(RGB(0, 84, 153));
+    solidrectangle(0, 0, 1280, 120);
+    // 页面标题
+    pageTitle.draw();
+    // 按钮
     startButton.draw();
     exitButton.draw();
 }
@@ -37,9 +40,12 @@ StateNode* MainMenuState::handleEvent() {
 // ChooseGameState
 void ChooseGameState::render() {
     cleardevice(); // 清屏
-    settextstyle(60, 0, _T("Arial"));
-    settextcolor(BLACK);
-    outtextxy(1280 / 2 - textwidth(_T("选择游戏")) / 2, 100, _T("选择游戏"));
+    // 顶部深蓝条
+    setfillcolor(RGB(0, 84, 153));
+    solidrectangle(0, 0, 1280, 120);
+    // 页面标题
+    pageTitle.draw();
+    // 返回按钮
     returnButton.draw();
 }
 
@@ -57,13 +63,18 @@ StateNode* ChooseGameState::handleEvent() {
 
 // ExitState
 void ExitState::render() {
-    // 在屏幕中央弹出一个窗口
-    setfillcolor(LIGHTGRAY);
-    solidrectangle(440, 260, 840, 460); // 窗口大小
+    // 在屏幕中央弹出白色对话框
+    setfillcolor(WHITE);
+    solidrectangle(440, 260, 840, 460);
+    setlinecolor(RGB(0, 84, 153));
+    rectangle(440, 260, 840, 460);
 
-    settextstyle(30, 0, _T("Arial"));
-    settextcolor(BLACK);
-    outtextxy(1280 / 2 - textwidth(_T("是否退出游戏？")) / 2, 300, _T("是否退出游戏？"));
+    settextstyle(28, 0, _T("微软雅黑"));
+    settextcolor(RGB(0, 84, 153));
+    setbkmode(TRANSPARENT);
+    const TCHAR* prompt = _T("是否退出游戏？");
+    int w = textwidth(prompt);
+    outtextxy(1280/2 - w/2, 300, prompt);
 
     // 绘制按钮
     yesButton.draw();

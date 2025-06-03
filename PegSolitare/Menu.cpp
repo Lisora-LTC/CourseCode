@@ -11,7 +11,7 @@ int main() {
     current->render();
 
     while (current) {
-        if (!GetAsyncKeyState(VK_LBUTTON)) {
+        if (!GetAsyncKeyState(VK_LBUTTON)) {// 改用WM_LBUTTONDOWN——鼠标左键按下？
             Sleep(50);
             continue;
         }
@@ -43,7 +43,7 @@ void init(){ // 初始化图形界面
         HWND hwnd = initgraph(windowWidth, windowHeight);
         SetWindowPos(hwnd, HWND_TOP, windowX, windowY, windowWidth, windowHeight, SWP_SHOWWINDOW);
 
-        setbkcolor(WHITE); // 背景颜色改为白色
+        setbkcolor(RGB(240, 248, 255)); // 浅蓝背景 (AliceBlue)
         cleardevice();
         
 }
