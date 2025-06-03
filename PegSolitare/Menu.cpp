@@ -2,12 +2,40 @@
 #include <easyx.h>
 #include <tchar.h>
 #include "Solitare.h"
+#include <unordered_map> // 添加头文件
 using namespace std;
 
 
 int main() {
     init();
-    mainMenu();
+
+    // 使用枚举变量管理当前状态
+    GameState currentState = MAIN_MENU;
+
+    // 渲染主菜单页面
+    mainMenu.render();
+
+    while (currentState != EXIT) {
+        // 检查鼠标左键是否被按下
+        if (!GetAsyncKeyState(VK_LBUTTON)) {
+            Sleep(50); // 等待事件
+            continue; // 跳过本次循环
+        }
+
+        // 根据 currentState 获取对应的页面对象
+        StateNode* currentNode = stateMap[currentState];
+        GameState previousState = currentState;
+
+        currentNode->handleEvent(currentState); // 处理事件并切换状态
+
+        // 只有页面状态发生变化时才清屏并重新渲染
+        if (currentState != previousState) {
+            currentNode = stateMap[currentState];
+            currentNode->render(); // 渲染当前页面
+        }//加一个exit窗口提问是否退出
+    }
+
+    closegraph(); // 关闭图形界面
     return 0;
 }
 
@@ -29,69 +57,5 @@ void init(){ //初始化图形界面
 
         setbkcolor(WHITE); // 背景颜色改为白色
         cleardevice();
-
-}
-
-void mainMenu(){ //渲染主菜单
-    // 设置标题
-    settextstyle(60, 0, _T("Arial")); // 增大标题文字大小
-    settextcolor(BLACK); // 字体颜色改为黑色
-    outtextxy(1280 / 2 - textwidth(_T("孔明棋")) / 2, 100, _T("孔明棋"));
-
-    // 创建按钮对象
-    Button startButton(560, 300, 160, 50, _T("开始游戏"));
-    Button exitButton(560, 400, 160, 50, _T("退出游戏"));
-
-    // 绘制按钮
-    startButton.draw();
-    exitButton.draw();
-
-    while (true) {
-        // 检测鼠标点击事件
-        if (GetAsyncKeyState(VK_LBUTTON)) {
-            POINT pt;
-            GetCursorPos(&pt);
-            ScreenToClient(GetForegroundWindow(), &pt);
-            //checkExitButton(pt.x, pt.y); // 检测是否点击了“退出游戏”按钮
-            if(startButton.isClicked(pt.x, pt.y)){
-                chooseGame();
-            }
-            if(exitButton.isClicked(pt.x, pt.y)){
-                closegraph(); // 关闭图形化窗口
-                exit(0); // 直接终止程序运行
-            }
-        }
-        Sleep(100); // 等待事件
-    }
-    return;
-}
-
-void chooseGame(){
-    cleardevice(); // 清屏，避免页面组件遮挡
-
-    // 设置标题
-    settextstyle(60, 0, _T("Arial")); // 增大标题文字大小
-    settextcolor(BLACK); // 字体颜色改为黑色
-    outtextxy(1280 / 2 - textwidth(_T("选择游戏")) / 2, 100, _T("选择游戏"));
-
-    // 创建返回按钮
-    Button returnButton(20, 20, 100, 40, _T("返回"));
-
-    // 绘制返回按钮
-    returnButton.draw();
-
-    while (true) {
-        // 检测鼠标点击事件
-        if (GetAsyncKeyState(VK_LBUTTON)) {
-            POINT pt;
-            GetCursorPos(&pt);
-            ScreenToClient(GetForegroundWindow(), &pt);
-            if (returnButton.isClicked(pt.x, pt.y)) {
-                cleardevice();
-                mainMenu();
-                return;
-            }
-        }
-        Sleep(100); // 等待事件
-    }
+        
 }
