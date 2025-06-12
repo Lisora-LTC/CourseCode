@@ -90,6 +90,9 @@ void GameState::render() {
     pageTitle.draw();
     // 返回按钮
     returnButton.draw();
+    // 渲染图例
+    renderLegend();
+    // 渲染棋盘
     board.render();
 }
 
@@ -462,4 +465,105 @@ StateNode* GameWonState::handleEvent() {
         return &chooseGame;
     }
     return this;
+}
+
+// GameState 图例渲染方法实现
+void GameState::renderLegend() const {
+    // 图例标题
+    LOGFONT titleFont;
+    gettextstyle(&titleFont);
+    titleFont.lfHeight = 24;
+    titleFont.lfWidth = 0;
+    titleFont.lfWeight = FW_BOLD;
+    titleFont.lfQuality = ANTIALIASED_QUALITY;
+    _tcscpy_s(titleFont.lfFaceName, _T("微软雅黑"));
+    settextstyle(&titleFont);
+    
+    settextcolor(RGB(70, 130, 220));
+    setbkmode(TRANSPARENT);
+    const TCHAR* legendTitle = _T("图例说明");
+    outtextxy(50, 120, legendTitle);
+    
+    // 设置说明文字字体
+    LOGFONT textFont;
+    gettextstyle(&textFont);
+    textFont.lfHeight = 18;
+    textFont.lfWidth = 0;
+    textFont.lfWeight = FW_NORMAL;
+    textFont.lfQuality = ANTIALIASED_QUALITY;
+    _tcscpy_s(textFont.lfFaceName, _T("微软雅黑"));
+    settextstyle(&textFont);
+    settextcolor(RGB(80, 80, 80));
+    
+    // 普通棋子图例 - 增加间距
+    renderLegendPiece(80, 180, 20, RGB(70, 130, 220), RGB(20, 50, 120));
+    outtextxy(120, 170, _T("普通棋子"));
+    
+    // 选中棋子图例 - 增加间距
+    renderLegendPiece(80, 250, 20, RGB(50, 205, 50), RGB(34, 139, 34));
+    // 选中光环效果
+    setlinecolor(RGB(50, 205, 50));
+    setlinestyle(PS_SOLID, 2);
+    circle(80, 250, 28);
+    outtextxy(120, 240, _T("选中棋子"));
+    
+    // 可走位置图例 - 增加间距
+    renderLegendMovable(80, 320, 20);
+    outtextxy(120, 310, _T("可走位置"));
+}
+
+void GameState::renderLegendPiece(int x, int y, int radius, COLORREF fillColor, COLORREF borderColor, bool hasHighlight) const {
+    // 绘制格子底座（白色圆形凹槽，蓝色边框）
+    setfillcolor(RGB(250, 252, 255));  // 纯净白色
+    setlinecolor(RGB(70, 130, 220));   // 清爽蓝色边框
+    setlinestyle(PS_SOLID, 1);
+    solidcircle(x, y, radius + 4);
+    circle(x, y, radius + 4);
+    
+    // 内圈阴影效果（浅蓝色）
+    setfillcolor(RGB(240, 245, 255));  // 极浅蓝色
+    solidcircle(x, y, radius + 2);
+    
+    // 绘制棋子
+    setfillcolor(fillColor);
+    solidcircle(x, y, radius);
+    
+    // 高光效果（白色）
+    if (hasHighlight) {
+        setfillcolor(RGB(255, 255, 255));
+        solidcircle(x - 6, y - 6, radius / 3);
+    }
+    
+    // 深色边框增强对比度
+    setlinecolor(borderColor);
+    setlinestyle(PS_SOLID, 2);
+    circle(x, y, radius);
+}
+
+void GameState::renderLegendMovable(int x, int y, int radius) const {
+    // 将整个格子底座改为橙红色背景
+    setfillcolor(RGB(255, 140, 100));  // 浅橙红色背景
+    solidcircle(x, y, radius + 4);
+    
+    // 橙红色边框，与棋盘大小相等
+    setlinecolor(RGB(255, 69, 0));     // 鲜艳橙红色边框
+    setlinestyle(PS_SOLID, 3);         // 加粗边框使其更明显
+    circle(x, y, radius + 4);
+    
+    // 内圈橙红色阴影效果
+    setfillcolor(RGB(255, 180, 150));  // 更浅的橙红色
+    solidcircle(x, y, radius + 2);
+    
+    // 中心橙红色圆形指示器
+    setfillcolor(RGB(255, 69, 0));     // 鲜艳橙红色
+    solidcircle(x, y, radius * 2 / 3);
+    
+    // 白色高光效果
+    setfillcolor(RGB(255, 255, 255));
+    solidcircle(x - 4, y - 4, radius / 4);
+    
+    // 深橙红色边框增强对比度
+    setlinecolor(RGB(200, 50, 0));
+    setlinestyle(PS_SOLID, 1);
+    circle(x, y, radius * 2 / 3);
 }

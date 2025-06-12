@@ -200,6 +200,12 @@ private:
     Chessboard board;
     bool boardInitialized = false;
     bool gameStarted = false;  // 跟踪游戏是否已经开始
+    
+    // 图例渲染方法
+    void renderLegend() const;
+    void renderLegendPiece(int x, int y, int radius, COLORREF fillColor, COLORREF borderColor, bool hasHighlight = true) const;
+    void renderLegendMovable(int x, int y, int radius) const;
+    
 public:
     GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")) {}  // 标题y位置与其他页面保持一致
     void render() override;
