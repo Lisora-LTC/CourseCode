@@ -7,15 +7,26 @@ Button::Button(int x, int y, int width, int height, const TCHAR* text)
     : x(x), y(y), width(width), height(height), text(text) {}
 
 void Button::draw() const {
-    // 蓝底白字按钮，带深蓝边框
+    // 蓝底白字按钮，带深蓝边框 (恢复原始尺寸，保留抗锯齿)
     setfillcolor(RGB(0, 120, 215));
     solidrectangle(x, y, x + width, y + height);
     setlinecolor(RGB(0, 84, 153));
     rectangle(x, y, x + width, y + height);
-    settextstyle(28, 0, _T("微软雅黑")); // 使用微软雅黑字体
+    
+    // 启用抗锯齿字体渲染
+    LOGFONT font;
+    gettextstyle(&font);
+    font.lfHeight = 28; // 恢复原始字体大小
+    font.lfWidth = 0;
+    font.lfWeight = FW_NORMAL;
+    font.lfQuality = ANTIALIASED_QUALITY; // 启用抗锯齿
+    _tcscpy_s(font.lfFaceName, _T("微软雅黑"));
+    settextstyle(&font);
+    
     settextcolor(WHITE); // 字体颜色为白色
     setbkmode(TRANSPARENT); // 文字背景透明
-    outtextxy(x + width / 2 - textwidth(text) / 2, y + height / 2 - textheight(text) / 2, text);
+    outtextxy(x + width / 2 - textwidth(text) / 2, 
+              y + height / 2 - textheight(text) / 2, text);
 }
 
 bool Button::isClicked(int mouseX, int mouseY) const {
