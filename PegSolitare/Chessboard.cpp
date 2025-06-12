@@ -175,6 +175,9 @@ bool Chessboard::executeMove(int toIndex) {
     
     if (middleIndex == -1) return false;
     
+    // 🔥 关键：先保存移动记录，再执行移动
+    moveHistory.push(MoveRecord(selectedIndex, middleIndex, toIndex));
+    
     // 执行移动
     blocks[selectedIndex].setPiece(false);  // 起始位置清空
     blocks[middleIndex].setPiece(false);    // 中间棋子被吃掉
@@ -352,4 +355,32 @@ bool Chessboard::canPieceMove(int index) const {
     }
     
     return false; // 没有可移动的方向
+}
+
+// 悔棋相关方法实现
+bool Chessboard::undoMove() {
+    if (moveHistory.empty()) return false;
+    
+    // 获取最近的移动记录
+    MoveRecord lastMove = moveHistory.top();
+    moveHistory.pop();
+    
+    // 逆向操作：恢复棋盘状态
+    blocks[lastMove.fromIndex].setPiece(true);      // 恢复起始位置的棋子
+    blocks[lastMove.middleIndex].setPiece(true);    // 恢复被吃掉的棋子
+    blocks[lastMove.toIndex].setPiece(false);       // 清空目标位置
+    
+    clearSelection();  // 清除当前选择状态
+    return true;
+}
+
+bool Chessboard::canUndo() const {
+    return !moveHistory.empty();
+}
+
+void Chessboard::clearHistory() {
+    // 清空移动历史记录栈
+    while (!moveHistory.empty()) {
+        moveHistory.pop();
+    }
 }

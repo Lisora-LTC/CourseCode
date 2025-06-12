@@ -6,6 +6,7 @@
 #include <tchar.h>
 #include <string>
 #include <unordered_map> // 添加头文件
+#include <stack>         // 添加栈头文件用于悔棋功能
 #include "BoardsConfig.h" // 引入 BoardsConfig
 using namespace std;
 
@@ -27,13 +28,27 @@ extern ContinueGameState continueGameState;
 extern GameFailedState gameFailedState;
 extern GameWonState gameWonState;
 
+// 移动记录结构体，用于悔棋功能
+struct MoveRecord {
+    int fromIndex;     // 起始位置索引
+    int middleIndex;   // 被吃掉的棋子位置索引
+    int toIndex;       // 目标位置索引
+    
+    MoveRecord(int from, int middle, int to) 
+        : fromIndex(from), middleIndex(middle), toIndex(to) {}
+};
+
 class Button {
 private:
     int x, y, width, height;
     const TCHAR* text; // 修改为 const TCHAR*
+    COLORREF fillColor;    // 按钮填充颜色
+    COLORREF borderColor;  // 按钮边框颜色
+    COLORREF textColor;    // 文字颜色
 
 public:
-    Button(int x, int y, int width, int height, const TCHAR* text); // 修改构造函数
+    Button(int x, int y, int width, int height, const TCHAR* text, 
+           COLORREF fill = RGB(0, 120, 215), COLORREF border = RGB(0, 84, 153), COLORREF textCol = WHITE); // 修改构造函数，添加颜色参数
     void draw() const;
     bool isClicked(int mouseX, int mouseY) const;//const 用来表示不会修改变量，只读
 };
@@ -83,6 +98,7 @@ private:
     vector<SingleBlock> blocks; // 格子容器
     const int BLOCK_SIZE = 70;  // 缩小格子尺寸适配720p
     int selectedIndex = -1; // 当前选中的棋子索引
+    stack<MoveRecord> moveHistory;  // 移动历史记录栈
     
     // 私有方法声明
     void selectPiece(int index);
@@ -107,6 +123,11 @@ public:
     bool isGameWon() const;      // 检测是否胜利（只剩一个棋子）
     bool isGameLost() const;     // 检测是否失败（无路可走）
     bool canPieceMove(int index) const; // 检测指定棋子是否有可移动位置
+    
+    // 悔棋相关方法
+    bool undoMove();             // 悔棋方法
+    bool canUndo() const;        // 检查是否可以悔棋
+    void clearHistory();         // 清空历史记录
 };
 
 // 状态节点类
@@ -142,7 +163,7 @@ public:
 class ChooseGameState : public StateNode {
 private:    Title pageTitle = Title(_T("选择游戏"), 60, 25);  // 保持和主菜单一致的y位置
     Button returnButton = Button(20, 30, 100, 40, _T("返回"));  // 垂直居中：(100-40)/2 = 30
-    Button startButton = Button(560, 280, 160, 50, _T("开始游戏"));  // 720p适配居中
+    Button startButton = Button(560, 450, 160, 50, _T("开始游戏"));  // 恢复到原来的中心位置
 public:
     StateNode* parent = &mainMenu;
     void render() override;
@@ -197,6 +218,7 @@ class GameState : public StateNode {
 private:
     Title pageTitle;
     Button returnButton;
+    Button undoButton;  // 悔棋按钮
     Chessboard board;
     bool boardInitialized = false;
     bool gameStarted = false;  // 跟踪游戏是否已经开始
@@ -207,7 +229,7 @@ private:
     void renderLegendMovable(int x, int y, int radius) const;
     
 public:
-    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")) {}  // 标题y位置与其他页面保持一致
+    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,340,100,40,_T("悔棋")) {}  // 悔棋按钮放在右侧中间
     void render() override;
     StateNode* handleEvent() override;
     // 修改为非内联声明
@@ -216,6 +238,9 @@ public:
     // 游戏进度管理方法
     bool isGameStarted() const { return gameStarted; }
     void resetGame();  // 重置游戏状态
+    
+    // 悔棋相关方法
+    Chessboard& getBoard() { return board; }  // 提供棋盘访问接口
 };
 
 
