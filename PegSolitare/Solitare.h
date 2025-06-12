@@ -15,6 +15,8 @@ class ChooseGameState;
 class ExitState;
 class GameState;
 class ContinueGameState;
+class GameFailedState;
+class GameWonState;
 
 // 2. extern 全局对象声明
 extern MainMenuState mainMenu;
@@ -22,6 +24,8 @@ extern ChooseGameState chooseGame;
 extern ExitState   exitState;
 extern GameState   gameState;
 extern ContinueGameState continueGameState;
+extern GameFailedState gameFailedState;
+extern GameWonState gameWonState;
 
 class Button {
 private:
@@ -126,7 +130,7 @@ public:
 
 // 主菜单状态类
 class MainMenuState : public StateNode {
-private:    Title pageTitle = Title(_T("孔明棋"), 70, 25);  // 720p适配
+private:    Title pageTitle = Title(_T("孔明棋"), 70, 25);  // 恢复原来的位置，视觉上更好
     Button startButton = Button(560, 280, 160, 50, _T("开始游戏"));  // 居中: (1280-160)/2 = 560
     Button exitButton = Button(560, 380, 160, 50, _T("退出游戏"));   // 下移
 public:
@@ -136,8 +140,8 @@ public:
 
 // 选择游戏状态类
 class ChooseGameState : public StateNode {
-private:    Title pageTitle = Title(_T("选择游戏"), 60, 25);  // 720p适配
-    Button returnButton = Button(20, 20, 100, 40, _T("返回"));  // 720p适配
+private:    Title pageTitle = Title(_T("选择游戏"), 60, 25);  // 保持和主菜单一致的y位置
+    Button returnButton = Button(20, 30, 100, 40, _T("返回"));  // 垂直居中：(100-40)/2 = 30
     Button startButton = Button(560, 280, 160, 50, _T("开始游戏"));  // 720p适配居中
 public:
     StateNode* parent = &mainMenu;
@@ -167,6 +171,28 @@ public:
     StateNode* handleEvent() override;
 };
 
+// 游戏失败状态类
+class GameFailedState : public StateNode {
+private:
+    Button exitButton = Button(450, 420, 140, 45, _T("退出游戏"));    // 左侧按钮
+    Button continueButton = Button(690, 420, 140, 45, _T("继续游戏")); // 右侧按钮
+
+public:
+    void render() override;
+    StateNode* handleEvent() override;
+};
+
+// 游戏胜利状态类
+class GameWonState : public StateNode {
+private:
+    Button nextGameButton = Button(450, 420, 140, 45, _T("下一局"));    // 左侧按钮
+    Button exitButton = Button(690, 420, 140, 45, _T("返回菜单"));      // 右侧按钮
+
+public:
+    void render() override;
+    StateNode* handleEvent() override;
+};
+
 class GameState : public StateNode {
 private:
     Title pageTitle;
@@ -175,7 +201,7 @@ private:
     bool boardInitialized = false;
     bool gameStarted = false;  // 跟踪游戏是否已经开始
 public:
-    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,20,100,40,_T("返回")) {}  // 720p适配
+    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")) {}  // 标题y位置与其他页面保持一致
     void render() override;
     StateNode* handleEvent() override;
     // 修改为非内联声明
@@ -191,6 +217,8 @@ extern MainMenuState mainMenu;
 extern ChooseGameState chooseGame;
 extern ExitState exitState;
 extern GameState gameState;
+extern GameFailedState gameFailedState;
+extern GameWonState gameWonState;
 
 void init();       // 初始化图形界面
 
