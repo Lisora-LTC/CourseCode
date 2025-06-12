@@ -50,6 +50,7 @@ void ChooseGameState::render() {
     pageTitle.draw();
     // 返回按钮
     returnButton.draw();
+    // 绘制开始游戏按钮
     startButton.draw();
 }
 
@@ -87,9 +88,20 @@ void GameState::render() {
     setfillcolor(RGB(0, 84, 153));
     solidrectangle(0, 0, 1280, 100);
     // 页面标题
-    pageTitle.draw();
-    // 返回按钮
+    pageTitle.draw();    // 返回按钮
     returnButton.draw();
+    // 悔棋按钮 - 永远显示，但根据栈状态改变颜色
+    if (board.canUndo()) {
+        // 有历史记录时显示蓝色
+        Button enabledUndoButton(1150, 340, 100, 40, _T("悔棋"), 
+                                 RGB(0, 120, 215), RGB(0, 84, 153), WHITE);
+        enabledUndoButton.draw();
+    } else {
+        // 没有历史记录时显示灰色
+        Button disabledUndoButton(1150, 340, 100, 40, _T("悔棋"), 
+                                  RGB(128, 128, 128), RGB(96, 96, 96), RGB(192, 192, 192));
+        disabledUndoButton.draw();
+    }
     // 渲染图例
     renderLegend();
     // 渲染棋盘
@@ -105,7 +117,16 @@ StateNode* GameState::handleEvent() {
         // 不重置游戏状态，保持棋盘当前状态
         // boardInitialized = false; // 🔧 移除这行，保持棋盘状态
         return &chooseGame; // 点击返回回到游戏选择界面
-    }// 处理棋盘点击
+    }
+      // 处理悔棋按钮点击 - 检查按钮区域而不是特定按钮对象
+    if (pt.x >= 1150 && pt.x <= 1250 && pt.y >= 340 && pt.y <= 380) {
+        if (board.canUndo()) {  // 只在有历史记录时执行悔棋
+            board.undoMove();  // 执行悔棋
+        }
+        return this;  // 保持在游戏状态
+    }
+
+// 处理棋盘点击
     if (board.handleClick(pt.x, pt.y)) {
         // 如果棋盘状态发生了改变（玩家移动了棋子），标记游戏已开始
         gameStarted = true;
@@ -283,6 +304,7 @@ void GameState::resetGame() {
     boardInitialized = false;
     gameStarted = false;
     board.clearBlocks();
+    board.clearHistory();  // 🔥 清空悔棋历史
 }
 
 // GameFailedState 实现
@@ -369,9 +391,11 @@ StateNode* GameFailedState::handleEvent() {
         gameState.resetGame();
         return &chooseGame;
     } else if (continueButton.isClicked(pt.x, pt.y)) {
-        // 暂时只返回游戏界面，后续可添加悔棋功能
-        // TODO: 实现悔棋功能
-        return &gameState;
+        // 执行悔棋操作
+        if (gameState.getBoard().undoMove()) {
+            return &gameState;  // 悔棋成功，返回游戏
+        }
+        // 悔棋失败（没有历史记录），保持当前状态
     }
     return this;
 }
