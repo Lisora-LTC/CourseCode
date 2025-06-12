@@ -199,76 +199,100 @@ void Chessboard::renderBlockAt(int index) const {
     }
 }
 
-// 渲染单个格子的通用方法 - 现代简约风格
+// 渲染单个格子的通用方法 - 蓝白配色主题
 void Chessboard::renderSingleBlock(const SingleBlock& block) const {
     int centerX = block.getX() + block.getWidth() / 2;
     int centerY = block.getY() + block.getHeight() / 2;
     int pieceRadius = block.getWidth() / 3;
     
-    // 绘制格子底座（浅灰色圆形凹槽）
-    setfillcolor(RGB(220, 230, 240));  // 非常浅的蓝灰色
-    setlinecolor(RGB(180, 200, 220));  // 稍深的边框
+    // 绘制格子底座（白色圆形凹槽，蓝色边框）
+    setfillcolor(RGB(250, 252, 255));  // 纯净白色
+    setlinecolor(RGB(70, 130, 220));   // 清爽蓝色边框
     setlinestyle(PS_SOLID, 2);
     solidcircle(centerX, centerY, pieceRadius + 4);
     circle(centerX, centerY, pieceRadius + 4);
     
-    // 内圈阴影效果
-    setfillcolor(RGB(200, 215, 235));
-    solidcircle(centerX, centerY, pieceRadius + 2);
-    
-    if (block.containsPiece()) {
+    // 内圈阴影效果（浅蓝色）
+    setfillcolor(RGB(240, 245, 255));  // 极浅蓝色
+    solidcircle(centerX, centerY, pieceRadius + 2);    if (block.containsPiece()) {
         // 根据状态设置不同的棋子样式
         if (block.getSelected()) {
-            // 选中状态：渐变红色棋子
-            setfillcolor(RGB(220, 53, 69));  // Bootstrap红色
+            // 选中状态：鲜艳绿色棋子（对比色突出显示）
+            setfillcolor(RGB(50, 205, 50));   // 鲜艳绿色
             solidcircle(centerX, centerY, pieceRadius);
-            // 高光效果
-            setfillcolor(RGB(255, 193, 203));
+            // 高光效果（白色）
+            setfillcolor(RGB(255, 255, 255));
             solidcircle(centerX - 8, centerY - 8, pieceRadius / 3);
-            // 选中光环
-            setlinecolor(RGB(220, 53, 69));
+            // 深色边框增强对比度
+            setlinecolor(RGB(34, 139, 34));
+            setlinestyle(PS_SOLID, 2);
+            circle(centerX, centerY, pieceRadius);
+            // 选中光环（鲜艳绿色）
+            setlinecolor(RGB(50, 205, 50));
             setlinestyle(PS_SOLID, 3);
             circle(centerX, centerY, pieceRadius + 8);
         } else if (block.getHovered()) {
-            // 悬停状态：渐变橙色棋子
-            setfillcolor(RGB(255, 133, 27));  // 温暖橙色
+            // 悬停状态：亮蓝色棋子
+            setfillcolor(RGB(50, 110, 200));  // 中蓝色
             solidcircle(centerX, centerY, pieceRadius);
-            // 高光效果
-            setfillcolor(RGB(255, 218, 185));
+            // 高光效果（白色）
+            setfillcolor(RGB(255, 255, 255));
             solidcircle(centerX - 6, centerY - 6, pieceRadius / 3);
-            // 悬停光环
-            setlinecolor(RGB(255, 133, 27));
+            // 深蓝色边框增强对比度
+            setlinecolor(RGB(20, 50, 120));
+            setlinestyle(PS_SOLID, 2);
+            circle(centerX, centerY, pieceRadius);
+            // 悬停光环（中蓝色）
+            setlinecolor(RGB(50, 110, 200));
             setlinestyle(PS_SOLID, 2);
             circle(centerX, centerY, pieceRadius + 6);
         } else {
-            // 正常状态：深蓝色棋子
-            setfillcolor(RGB(52, 58, 64));   // 深灰蓝色
+            // 正常状态：标准蓝色棋子，深蓝色边框
+            setfillcolor(RGB(70, 130, 220));  // 标准蓝色
             solidcircle(centerX, centerY, pieceRadius);
-            // 高光效果
-            setfillcolor(RGB(173, 181, 189));
+            // 高光效果（白色）
+            setfillcolor(RGB(255, 255, 255));
             solidcircle(centerX - 6, centerY - 6, pieceRadius / 3);
-            // 边框
-            setlinecolor(RGB(33, 37, 41));
-            setlinestyle(PS_SOLID, 1);
+            // 深蓝色边框增强对比度
+            setlinecolor(RGB(20, 50, 120));
+            setlinestyle(PS_SOLID, 2);
             circle(centerX, centerY, pieceRadius);
         }
     } else {
         // 没有棋子时的状态
         if (block.getMovable()) {
-            // 可移动位置：蓝色指示器
-            setfillcolor(RGB(13, 110, 253));  // Bootstrap蓝色
-            solidcircle(centerX, centerY, pieceRadius / 2);
-            // 脉冲效果
-            setlinecolor(RGB(13, 110, 253));
+            // 可移动位置：橙红色指示器
+            
+            // 将整个格子底座改为橙红色背景
+            setfillcolor(RGB(255, 140, 100));  // 浅橙红色背景
+            solidcircle(centerX, centerY, pieceRadius + 4);
+            
+            // 橙红色边框，与棋盘大小相等
+            setlinecolor(RGB(255, 69, 0));     // 鲜艳橙红色边框
+            setlinestyle(PS_SOLID, 4);         // 加粗边框使其更明显
+            circle(centerX, centerY, pieceRadius + 4);
+            
+            // 内圈橙红色阴影效果
+            setfillcolor(RGB(255, 180, 150));  // 更浅的橙红色
+            solidcircle(centerX, centerY, pieceRadius + 2);
+            
+            // 中心橙红色圆形指示器
+            setfillcolor(RGB(255, 69, 0));     // 鲜艳橙红色
+            solidcircle(centerX, centerY, pieceRadius * 2 / 3);
+            
+            // 白色高光效果
+            setfillcolor(RGB(255, 255, 255));
+            solidcircle(centerX - 6, centerY - 6, pieceRadius / 4);
+            
+            // 深橙红色边框增强对比度
+            setlinecolor(RGB(200, 50, 0));
             setlinestyle(PS_SOLID, 2);
-            circle(centerX, centerY, pieceRadius / 2 + 4);
-            setlinestyle(PS_DOT, 1);
-            circle(centerX, centerY, pieceRadius / 2 + 8);
+            circle(centerX, centerY, pieceRadius * 2 / 3);
         } else if (block.getHovered()) {
-            // 空位悬停：淡蓝色提示
-            setfillcolor(RGB(173, 216, 230));  // 淡蓝色
+            // 空位悬停：极浅蓝色提示
+            setfillcolor(RGB(220, 235, 255));  // 极浅蓝色
             solidcircle(centerX, centerY, pieceRadius / 4);
-            setlinecolor(RGB(100, 149, 237));
+            setlinecolor(RGB(120, 170, 240));
             setlinestyle(PS_SOLID, 1);
             circle(centerX, centerY, pieceRadius / 2);
         }
