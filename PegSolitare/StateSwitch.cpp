@@ -57,7 +57,8 @@ StateNode* ChooseGameState::handleEvent() {
     // 直接获取鼠标点击位置并判断按钮
     POINT pt;
     GetCursorPos(&pt);
-    ScreenToClient(GetForegroundWindow(), &pt);    if (returnButton.isClicked(pt.x, pt.y)) {
+    ScreenToClient(GetForegroundWindow(), &pt);    
+    if (returnButton.isClicked(pt.x, pt.y)) {
         return &mainMenu;
     } else if (startButton.isClicked(pt.x, pt.y)) {
         // 检查是否有进行中的游戏
@@ -96,12 +97,12 @@ StateNode* GameState::handleEvent() {
     // 直接获取鼠标点击位置并判断按钮
     POINT pt;
     GetCursorPos(&pt);
-    ScreenToClient(GetForegroundWindow(), &pt);    
+    ScreenToClient(GetForegroundWindow(), &pt);      
     if (returnButton.isClicked(pt.x, pt.y)) {
-        // 重置游戏状态，下次进入时重新初始化
-        boardInitialized = false;
+        // 不重置游戏状态，保持棋盘当前状态
+        // boardInitialized = false; // 🔧 移除这行，保持棋盘状态
         return &chooseGame; // 点击返回回到游戏选择界面
-    }      // 处理棋盘点击
+    }// 处理棋盘点击
     if (board.handleClick(pt.x, pt.y)) {
         // 如果棋盘状态发生了改变（玩家移动了棋子），标记游戏已开始
         gameStarted = true;
