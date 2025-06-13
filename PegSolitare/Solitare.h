@@ -19,6 +19,7 @@ class GameState;
 class ContinueGameState;
 class GameFailedState;
 class GameWonState;
+class RestartConfirmState;  // 新增重新开始确认状态类
 
 // 2. extern 全局对象声明
 extern MainMenuState mainMenu;
@@ -29,6 +30,7 @@ extern GameState   gameState;
 extern ContinueGameState continueGameState;
 extern GameFailedState gameFailedState;
 extern GameWonState gameWonState;
+extern RestartConfirmState restartConfirmState;  // 新增重新开始确认状态对象
 
 // 移动记录结构体，用于悔棋功能
 struct MoveRecord {
@@ -47,12 +49,17 @@ private:
     COLORREF fillColor;    // 按钮填充颜色
     COLORREF borderColor;  // 按钮边框颜色
     COLORREF textColor;    // 文字颜色
+    bool enabled;          // 新增：按钮是否可按
 
 public:
     Button(int x, int y, int width, int height, const TCHAR* text, 
-           COLORREF fill = RGB(0, 120, 215), COLORREF border = RGB(0, 84, 153), COLORREF textCol = WHITE); // 修改构造函数，添加颜色参数
+           COLORREF fill = RGB(0, 120, 215), COLORREF border = RGB(0, 84, 153), COLORREF textCol = WHITE, bool isEnabled = true); // 修改构造函数，添加可按状态参数
     void draw() const;
+    void drawWithHover(int mouseX, int mouseY) const; // 新增：带悬停效果的绘制方法
     bool isClicked(int mouseX, int mouseY) const;//const 用来表示不会修改变量，只读
+    bool isHovered(int mouseX, int mouseY) const; // 新增：检测是否悬停
+    void setEnabled(bool isEnabled); // 新增：设置按钮可按状态
+    bool getEnabled() const; // 新增：获取按钮可按状态
 };
 
 
@@ -133,9 +140,7 @@ public:
     // 胜负检测方法
     bool isGameWon() const;      // 检测是否胜利（只剩一个棋子）
     bool isGameLost() const;     // 检测是否失败（无路可走）
-    bool canPieceMove(int index) const; // 检测指定棋子是否有可移动位置
-
-    // 悔棋相关方法
+    bool canPieceMove(int index) const; // 检测指定棋子是否有可移动位置    // 悔棋相关方法
     bool undoMove();             // 悔棋方法
     bool canUndo() const;        // 检查是否可以悔棋
     void clearHistory();         // 清空历史记录
@@ -218,6 +223,17 @@ public:
     StateNode* handleEvent() override;
 };
 
+// 重新开始确认状态类
+class RestartConfirmState : public StateNode {
+private:
+    Button yesButton = Button(490, 390, 100, 40, _T("是"));   // 720p完全对称
+    Button noButton = Button(690, 390, 100, 40, _T("否"));  // 720p完全对称
+
+public:
+    void render() override;
+    StateNode* handleEvent() override;
+};
+
 // 游戏失败状态类
 class GameFailedState : public StateNode {
 private:
@@ -249,6 +265,7 @@ private:
     Title pageTitle;
     Button returnButton;
     Button undoButton;  // 悔棋按钮
+    Button restartButton;  // 重新开始按钮
     
     // 图例渲染方法
     void renderLegend() const;
@@ -256,7 +273,7 @@ private:
     void renderLegendMovable(int x, int y, int radius) const;
     
 public:
-    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,340,100,40,_T("悔棋")) {}  // 悔棋按钮放在右侧中间
+    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,340,100,40,_T("悔棋")), restartButton(1150,390,100,40,_T("重新开始"), RGB(255, 140, 0), RGB(230, 120, 0), WHITE) {}  // 重新开始按钮设置为橙色
     void render() override;
     StateNode* handleEvent() override;
     // 修改为非内联声明
@@ -266,6 +283,8 @@ public:
     bool isGameStarted() const { return gameStarted; }
     void resetGame();  // 重置游戏状态
     void startEndgame();  // 新增残局模式初始化方法
+    bool isEndgameMode() const { return endgameMode; }  // 检查是否是残局模式
+    void restartCurrentMode();  // 重新开始当前模式
     
     // 悔棋相关方法
     Chessboard& getBoard() { return board; }  // 提供棋盘访问接口
@@ -279,6 +298,7 @@ extern ExitState exitState;
 extern GameState gameState;
 extern GameFailedState gameFailedState;
 extern GameWonState gameWonState;
+extern RestartConfirmState restartConfirmState;  // 新增重新开始确认状态对象
 
 void init();       // 初始化图形界面
 
