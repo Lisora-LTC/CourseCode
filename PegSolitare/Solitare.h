@@ -13,6 +13,7 @@ using namespace std;
 // 1. 前向声明
 class MainMenuState;
 class ChooseGameState;
+class HowToPlayState;
 class ExitState;
 class GameState;
 class ContinueGameState;
@@ -22,6 +23,7 @@ class GameWonState;
 // 2. extern 全局对象声明
 extern MainMenuState mainMenu;
 extern ChooseGameState chooseGame;
+extern HowToPlayState howToPlay;
 extern ExitState   exitState;
 extern GameState   gameState;
 extern ContinueGameState continueGameState;
@@ -152,8 +154,9 @@ public:
 // 主菜单状态类
 class MainMenuState : public StateNode {
 private:    Title pageTitle = Title(_T("孔明棋"), 70, 25);  // 恢复原来的位置，视觉上更好
-    Button startButton = Button(560, 280, 160, 50, _T("开始游戏"));  // 居中: (1280-160)/2 = 560
-    Button exitButton = Button(560, 380, 160, 50, _T("退出游戏"));   // 下移
+    Button startButton = Button(560, 250, 160, 50, _T("开始游戏"));  // 居中: (1280-160)/2 = 560，向上调整
+    Button howToPlayButton = Button(560, 320, 160, 50, _T("玩法介绍"));  // 新增按钮
+    Button exitButton = Button(560, 390, 160, 50, _T("退出游戏"));   // 下移
 public:
     void render() override;
     StateNode* handleEvent() override;
@@ -163,9 +166,19 @@ public:
 class ChooseGameState : public StateNode {
 private:    Title pageTitle = Title(_T("选择游戏"), 60, 25);  // 保持和主菜单一致的y位置
     Button returnButton = Button(20, 30, 100, 40, _T("返回"));  // 垂直居中：(100-40)/2 = 30
-    Button startButton = Button(560, 450, 160, 50, _T("开始游戏"));  // 恢复到原来的中心位置
+    Button startButton = Button(560, 580, 160, 50, _T("开始游戏"));  // 从500进一步下移到580
 public:
     StateNode* parent = &mainMenu;
+    void render() override;
+    StateNode* handleEvent() override;
+};
+
+// 玩法介绍状态类
+class HowToPlayState : public StateNode {
+private:
+    Title pageTitle = Title(_T("玩法介绍"), 60, 25);
+    Button returnButton = Button(20, 30, 100, 40, _T("返回"));
+public:
     void render() override;
     StateNode* handleEvent() override;
 };
@@ -246,6 +259,7 @@ public:
 
 extern MainMenuState mainMenu;
 extern ChooseGameState chooseGame;
+extern HowToPlayState howToPlay;
 extern ExitState exitState;
 extern GameState gameState;
 extern GameFailedState gameFailedState;

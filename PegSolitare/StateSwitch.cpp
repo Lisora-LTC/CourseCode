@@ -8,6 +8,7 @@ using namespace std;
 
 MainMenuState mainMenu;
 ChooseGameState chooseGame;
+HowToPlayState howToPlay;
 ExitState exitState;
 GameState gameState;
 ContinueGameState continueGameState;
@@ -24,6 +25,7 @@ void MainMenuState::render() {
     pageTitle.draw();
     // 按钮
     startButton.draw();
+    howToPlayButton.draw();
     exitButton.draw();
 }
 
@@ -34,6 +36,8 @@ StateNode* MainMenuState::handleEvent() {
     ScreenToClient(GetForegroundWindow(), &pt);
     if (startButton.isClicked(pt.x, pt.y)) {
         return &chooseGame;
+    } else if (howToPlayButton.isClicked(pt.x, pt.y)) {
+        return &howToPlay;
     } else if (exitButton.isClicked(pt.x, pt.y)) {
         return &exitState;
     }
@@ -50,7 +54,56 @@ void ChooseGameState::render() {
     pageTitle.draw();
     // 返回按钮
     returnButton.draw();
-    // 绘制开始游戏按钮
+    
+    // 加载并显示英式棋盘图片
+    static bool imageLoaded = false;
+    static IMAGE boardImage;
+    if (!imageLoaded) {
+        loadimage(&boardImage, _T("EnglishBoard_resized.png"));
+        imageLoaded = true;
+    }
+    
+    // 获取图片尺寸
+    int imgWidth = boardImage.getwidth();
+    int imgHeight = boardImage.getheight();    // 检查图片是否有效（宽度和高度大于0）
+    if (imgWidth > 0 && imgHeight > 0) {        // 在图片上方添加说明文字
+        LOGFONT labelFont;
+        gettextstyle(&labelFont);
+        labelFont.lfHeight = 36; // 字体从28调大到36
+        labelFont.lfWidth = 0;
+        labelFont.lfWeight = FW_BOLD;
+        labelFont.lfQuality = ANTIALIASED_QUALITY;
+        _tcscpy_s(labelFont.lfFaceName, _T("微软雅黑"));
+        settextstyle(&labelFont);
+          settextcolor(RGB(0, 84, 153));
+        setbkmode(TRANSPARENT);
+        const TCHAR* label = _T("英式棋盘");
+        int labelWidth = textwidth(label);
+        outtextxy(640 - labelWidth/2, 150, label); // 标题位置调整到Y=150
+          // 图片位置固定 - 在标题下方合适距离
+        int imgX = (1280 - imgWidth) / 2;
+        int imgY = 210; // 图片下移到Y=210，增加与标题的间距
+        
+        // 显示图片
+        putimage(imgX, imgY, &boardImage);
+    } else {
+        // 图片加载失败，显示提示信息
+        LOGFONT font;
+        gettextstyle(&font);
+        font.lfHeight = 24;
+        font.lfWidth = 0;
+        font.lfWeight = FW_NORMAL;
+        font.lfQuality = ANTIALIASED_QUALITY;
+        _tcscpy_s(font.lfFaceName, _T("微软雅黑"));
+        settextstyle(&font);
+        
+        settextcolor(RGB(0, 84, 153));
+        setbkmode(TRANSPARENT);
+        const TCHAR* errorText = _T("英式孔明棋棋盘布局");
+        int textWidth = textwidth(errorText);
+        outtextxy(640 - textWidth/2, 380, errorText); // 相应调整错误提示位置
+    }
+      // 绘制开始游戏按钮（下移到580位置，与图片保持距离）
     startButton.draw();
 }
 
@@ -590,4 +643,90 @@ void GameState::renderLegendMovable(int x, int y, int radius) const {
     setlinecolor(RGB(200, 50, 0));
     setlinestyle(PS_SOLID, 1);
     circle(x, y, radius * 2 / 3);
+}
+
+// HowToPlayState 实现 - 玩法介绍页面
+void HowToPlayState::render() {
+    cleardevice(); // 清屏
+    // 顶部深蓝条 (720p适配)
+    setfillcolor(RGB(0, 84, 153));
+    solidrectangle(0, 0, 1280, 100);
+    // 页面标题
+    pageTitle.draw();
+    // 返回按钮
+    returnButton.draw();
+      // 设置内容字体 - 适中大小加粗
+    LOGFONT contentFont;
+    gettextstyle(&contentFont);
+    contentFont.lfHeight = 26;  // 从32减少到26
+    contentFont.lfWidth = 0;
+    contentFont.lfWeight = FW_BOLD;
+    contentFont.lfQuality = ANTIALIASED_QUALITY;
+    _tcscpy_s(contentFont.lfFaceName, _T("微软雅黑"));
+    settextstyle(&contentFont);
+    
+    settextcolor(RGB(0, 84, 153));
+    setbkmode(TRANSPARENT);
+    
+    // 紧凑的玩法介绍内容
+    int startY = 140;  // 从180减少到140
+    int lineHeight = 40;  // 从55减少到40
+    
+    outtextxy(100, startY, _T("游戏目标：通过跳跃吃子，最终只剩一枚棋子"));
+    
+    outtextxy(100, startY + lineHeight * 2, _T("基本规则："));
+    outtextxy(150, startY + lineHeight * 3, _T("• 跳过相邻棋子到空位    • 被跳过的棋子消失"));
+    outtextxy(150, startY + lineHeight * 4, _T("• 只能上下左右移动      • 选中棋子显示绿色"));
+      outtextxy(100, startY + lineHeight * 6, _T("操作方法："));
+    outtextxy(150, startY + lineHeight * 7, _T("• 点击棋子选中          • 点击橙红色位置移动"));
+    outtextxy(150, startY + lineHeight * 8, _T("• 支持悔棋功能          • 右侧按钮可撤销"));
+      // 右侧展示Lisora.png图片
+    IMAGE* lisora_img = new IMAGE;
+    loadimage(lisora_img, _T("Lisora.png"));
+    
+    // 计算图片位置 - 右侧居中
+    int imgWidth = lisora_img->getwidth();
+    int imgHeight = lisora_img->getheight();
+    int imgX = 900;  // 右侧位置
+    int imgY = startY + lineHeight * 2;  // 从规则部分开始的高度
+    
+    // 绘制图片
+    putimage(imgX, imgY, lisora_img);
+    
+    // 在图片下方显示加粗的姓名
+    LOGFONT nameFont;
+    gettextstyle(&nameFont);
+    nameFont.lfHeight = 32;  // 大字体
+    nameFont.lfWidth = 0;
+    nameFont.lfWeight = FW_BOLD;  // 加粗
+    nameFont.lfQuality = ANTIALIASED_QUALITY;
+    _tcscpy_s(nameFont.lfFaceName, _T("微软雅黑"));
+    settextstyle(&nameFont);
+    
+    settextcolor(RGB(0, 84, 153));
+    const TCHAR* name = _T("Lisora");
+    int nameWidth = textwidth(name);
+    int nameX = imgX + (imgWidth - nameWidth) / 2;  // 居中对齐图片
+    int nameY = imgY + imgHeight + 20;  // 图片下方20像素
+    outtextxy(nameX, nameY, name);
+    
+    delete lisora_img;
+    
+    // 底部提示 - 位置上移
+    // settextcolor(RGB(100, 100, 100));
+    // const TCHAR* tip = _T("提示：仔细思考每一步，考验您的策略思维！");
+    // int tipWidth = textwidth(tip);
+    // outtextxy(640 - tipWidth/2, startY + lineHeight * 10, tip);
+}
+
+StateNode* HowToPlayState::handleEvent() {
+    // 获取鼠标点击位置并判断按钮
+    POINT pt;
+    GetCursorPos(&pt);
+    ScreenToClient(GetForegroundWindow(), &pt);
+    
+    if (returnButton.isClicked(pt.x, pt.y)) {
+        return &mainMenu; // 返回主菜单
+    }
+    return this;
 }
