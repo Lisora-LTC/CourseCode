@@ -3,6 +3,8 @@
 #include <tchar.h>
 #include "Solitare.h"
 #include <unordered_map>
+#include <cstdlib>
+#include <ctime>
 
 using namespace std;
 
@@ -105,6 +107,8 @@ void ChooseGameState::render() {
     }
       // 绘制开始游戏按钮（下移到580位置，与图片保持距离）
     startButton.draw();
+    // 绘制残局模式按钮
+    endgameButton.draw();
 }
 
 StateNode* ChooseGameState::handleEvent() {
@@ -113,13 +117,22 @@ StateNode* ChooseGameState::handleEvent() {
     GetCursorPos(&pt);
     ScreenToClient(GetForegroundWindow(), &pt);    
     if (returnButton.isClicked(pt.x, pt.y)) {
-        return &mainMenu;
-    } else if (startButton.isClicked(pt.x, pt.y)) {
+        return &mainMenu;    } else if (startButton.isClicked(pt.x, pt.y)) {
         // 检查是否有进行中的游戏
+        pendingEndgame = false;  // 标记为普通游戏模式
         if (gameState.isGameStarted()) {
             return &continueGameState;  // 有进行中的游戏，弹出确认界面
         } else {
             return &gameState;  // 没有进行中的游戏，直接开始新游戏
+        }
+    } else if (endgameButton.isClicked(pt.x, pt.y)) {
+        // 残局模式也需要检查是否有进行中的游戏
+        pendingEndgame = true;  // 标记为残局模式
+        if (gameState.isGameStarted()) {
+            return &continueGameState;  // 有进行中的游戏，弹出确认界面
+        } else {
+            gameState.startEndgame();
+            return &gameState;
         }
     }
     return this;
@@ -347,9 +360,13 @@ StateNode* ContinueGameState::handleEvent() {
         return &gameState; // 继续上次的游戏
     } else if (noButton.isClicked(pt.x, pt.y)) {
         gameState.resetGame(); // 重置游戏状态
-        return &gameState; // 开始新游戏
-    }
-    return this;
+        // 检查是否要开始残局模式
+        if (chooseGame.isPendingEndgame()) {
+            gameState.startEndgame();
+            chooseGame.setPendingEndgame(false); // 清除标记
+        }
+        return &gameState; // 开始新游戏或残局
+    }    return this;
 }
 
 // GameState的新方法实现
@@ -358,6 +375,40 @@ void GameState::resetGame() {
     gameStarted = false;
     board.clearBlocks();
     board.clearHistory();  // 🔥 清空悔棋历史
+}
+
+// 新增：残局模式初始化，随机多步生成残局
+void GameState::startEndgame() {
+    // 构建空棋盘
+    board.clearBlocks();
+    // 添加所有格子并置空
+    for (const auto& coord : AllBoards.at("English")) {
+        board.addBlock(coord.first, coord.second);
+        board.setPieceAt(board.getBlockCount() - 1, false);
+    }
+    // 添加中心空格
+    board.addBlock(605, 375);
+    board.setPieceAt(board.getBlockCount() - 1, false);
+    
+    // 随机选择最后一颗棋子位置
+    std::srand((unsigned)std::time(nullptr));
+    int count = board.getBlockCount();
+    int finalIdx = std::rand() % count;
+    board.setPieceAt(finalIdx, true);
+    
+    // 随机多步反向移动，生成残局
+    int steps = std::rand() % 10 + 5; // 5到14步
+    for (int i = 0; i < steps; ++i) {
+        auto revs = board.getReverseMoves();
+        if (revs.empty()) break;
+        int idx = std::rand() % revs.size();
+        board.applyReverseMove(revs[idx]);
+    }
+    
+    board.clearHistory();  // 清空反向移动历史
+    boardInitialized = true;
+    gameStarted = true;
+    endgameMode = true;
 }
 
 // GameFailedState 实现
@@ -711,12 +762,6 @@ void HowToPlayState::render() {
     outtextxy(nameX, nameY, name);
     
     delete lisora_img;
-    
-    // 底部提示 - 位置上移
-    // settextcolor(RGB(100, 100, 100));
-    // const TCHAR* tip = _T("提示：仔细思考每一步，考验您的策略思维！");
-    // int tipWidth = textwidth(tip);
-    // outtextxy(640 - tipWidth/2, startY + lineHeight * 10, tip);
 }
 
 StateNode* HowToPlayState::handleEvent() {

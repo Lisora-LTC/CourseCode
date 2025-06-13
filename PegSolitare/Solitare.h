@@ -106,26 +106,35 @@ private:
     void selectPiece(int index);
     void clearSelection();
     void showPossibleMoves(int fromIndex);
-    int findBlockAt(int x, int y) const;
     bool executeMove(int toIndex);
     void renderSingleBlock(const SingleBlock& block) const;
 
 public:
+    // 查找指定坐标处的格子索引
+    int findBlockAt(int x, int y) const;
+    
     // 公有方法声明
     void clearBlocks();
     void addBlock(int x, int y);
     void setPieceAt(int index, bool hasPiece);
-    int getBlockCount() const;    
+    int getBlockCount() const;
     void updateHover(int mouseX, int mouseY);
     bool handleClick(int mouseX, int mouseY);
     void render() const;
     void renderBlockAt(int index) const;
     
+    // 查询指定索引处是否有棋子
+    bool hasPieceAt(int index) const;
+    // 生成所有可能的反向移动
+    std::vector<MoveRecord> getReverseMoves() const;
+    // 应用反向移动
+    void applyReverseMove(const MoveRecord& rec);
+    
     // 胜负检测方法
     bool isGameWon() const;      // 检测是否胜利（只剩一个棋子）
     bool isGameLost() const;     // 检测是否失败（无路可走）
     bool canPieceMove(int index) const; // 检测指定棋子是否有可移动位置
-    
+
     // 悔棋相关方法
     bool undoMove();             // 悔棋方法
     bool canUndo() const;        // 检查是否可以悔棋
@@ -154,9 +163,9 @@ public:
 // 主菜单状态类
 class MainMenuState : public StateNode {
 private:    Title pageTitle = Title(_T("孔明棋"), 70, 25);  // 恢复原来的位置，视觉上更好
-    Button startButton = Button(560, 250, 160, 50, _T("开始游戏"));  // 居中: (1280-160)/2 = 560，向上调整
-    Button howToPlayButton = Button(560, 320, 160, 50, _T("玩法介绍"));  // 新增按钮
-    Button exitButton = Button(560, 390, 160, 50, _T("退出游戏"));   // 下移
+    Button startButton = Button(560, 240, 160, 50, _T("开始游戏"));  // 居中: (1280-160)/2 = 560，稍微上移
+    Button howToPlayButton = Button(560, 330, 160, 50, _T("玩法介绍"));  // 间距加大10px
+    Button exitButton = Button(560, 420, 160, 50, _T("退出游戏"));   // 间距加大30px
 public:
     void render() override;
     StateNode* handleEvent() override;
@@ -166,11 +175,15 @@ public:
 class ChooseGameState : public StateNode {
 private:    Title pageTitle = Title(_T("选择游戏"), 60, 25);  // 保持和主菜单一致的y位置
     Button returnButton = Button(20, 30, 100, 40, _T("返回"));  // 垂直居中：(100-40)/2 = 30
-    Button startButton = Button(560, 580, 160, 50, _T("开始游戏"));  // 从500进一步下移到580
+    Button startButton = Button(450, 580, 160, 50, _T("经典模式"));  // 左侧按钮，改名为经典模式，向左移动
+    Button endgameButton = Button(670, 580, 160, 50, _T("残局模式"));  // 右侧按钮，向右移动
+    bool pendingEndgame = false;  // 标记是否等待开始残局模式
 public:
     StateNode* parent = &mainMenu;
     void render() override;
     StateNode* handleEvent() override;
+    void setPendingEndgame(bool flag) { pendingEndgame = flag; }
+    bool isPendingEndgame() const { return pendingEndgame; }
 };
 
 // 玩法介绍状态类
@@ -229,12 +242,13 @@ public:
 
 class GameState : public StateNode {
 private:
-    Title pageTitle;
-    Button returnButton;
-    Button undoButton;  // 悔棋按钮
     Chessboard board;
     bool boardInitialized = false;
     bool gameStarted = false;  // 跟踪游戏是否已经开始
+    bool endgameMode = false;   // 新增标志：是否残局模式
+    Title pageTitle;
+    Button returnButton;
+    Button undoButton;  // 悔棋按钮
     
     // 图例渲染方法
     void renderLegend() const;
@@ -251,6 +265,7 @@ public:
     // 游戏进度管理方法
     bool isGameStarted() const { return gameStarted; }
     void resetGame();  // 重置游戏状态
+    void startEndgame();  // 新增残局模式初始化方法
     
     // 悔棋相关方法
     Chessboard& getBoard() { return board; }  // 提供棋盘访问接口

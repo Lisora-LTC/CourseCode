@@ -133,8 +133,8 @@ void Chessboard::showPossibleMoves(int fromIndex) {
         int toY = fromY + 2 * directions[i][1];
         
         // 查找中间位置和目标位置的索引
-        int middleIndex = findBlockAt(middleX, middleY);
-        int toIndex = findBlockAt(toX, toY);
+        int middleIndex = this->findBlockAt(middleX, middleY);
+        int toIndex = this->findBlockAt(toX, toY);
         
         // 如果找到了有效的中间位置和目标位置
         if (middleIndex != -1 && toIndex != -1) {
@@ -185,6 +185,50 @@ bool Chessboard::executeMove(int toIndex) {
     
     clearSelection();
     return true;
+}
+
+// 新增：查询指定索引处是否有棋子
+bool Chessboard::hasPieceAt(int index) const {
+    if (index >= 0 && index < blocks.size()) {
+        return blocks[index].containsPiece();
+    }
+    return false;
+}
+
+// 新增：生成所有可能的反向移动
+std::vector<MoveRecord> Chessboard::getReverseMoves() const {
+    std::vector<MoveRecord> revs;
+    int dirs[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+    for (int i = 0; i < blocks.size(); ++i) {
+        if (!blocks[i].containsPiece()) continue;
+        int x = blocks[i].getX();
+        int y = blocks[i].getY();
+        for (auto& d : dirs) {
+            int middleX = x + d[0] * BLOCK_SIZE;
+            int middleY = y + d[1] * BLOCK_SIZE;
+            int fromX = x + d[0] * 2 * BLOCK_SIZE;
+            int fromY = y + d[1] * 2 * BLOCK_SIZE;
+            int middleIndex = this->findBlockAt(middleX, middleY);
+            int fromIndex = this->findBlockAt(fromX, fromY);
+            if (middleIndex != -1 && fromIndex != -1) {
+                if (!blocks[middleIndex].containsPiece() && !blocks[fromIndex].containsPiece()) {
+                    revs.emplace_back(fromIndex, middleIndex, i);
+                }
+            }
+        }
+    }
+    return revs;
+}
+
+// 新增：应用反向移动
+void Chessboard::applyReverseMove(const MoveRecord& rec) {
+    if (rec.fromIndex >= 0 && rec.fromIndex < blocks.size() &&
+        rec.middleIndex >= 0 && rec.middleIndex < blocks.size() &&
+        rec.toIndex >= 0 && rec.toIndex < blocks.size()) {
+        blocks[rec.fromIndex].setPiece(true);
+        blocks[rec.middleIndex].setPiece(true);
+        blocks[rec.toIndex].setPiece(false);
+    }
 }
 
 // 渲染整个棋盘的方法
@@ -342,8 +386,8 @@ bool Chessboard::canPieceMove(int index) const {
         int toY = fromY + 2 * directions[i][1];
         
         // 查找中间位置和目标位置的索引
-        int middleIndex = findBlockAt(middleX, middleY);
-        int toIndex = findBlockAt(toX, toY);
+        int middleIndex = this->findBlockAt(middleX, middleY);
+        int toIndex = this->findBlockAt(toX, toY);
         
         // 如果找到了有效的中间位置和目标位置
         if (middleIndex != -1 && toIndex != -1) {
