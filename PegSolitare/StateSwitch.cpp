@@ -1,6 +1,7 @@
 #include <vector>
 #include <easyx.h>
 #include <tchar.h>
+#include <windows.h>  // 为 Sleep
 #include "Solitare.h"
 #include <unordered_map>
 #include <cstdlib>
@@ -12,6 +13,11 @@ MainMenuState mainMenu;
 ChooseGameState chooseGame;
 HowToPlayState howToPlay; 
 GameState gameState;
+
+extern MoveRecord searchBestMove(const Chessboard& board);
+static int hintFromIndex = -1;
+static int hintToIndex = -1;
+static bool hintSearching = false;  // 是否正在搜索提示
 
 // MainMenuState
 void MainMenuState::render() {
@@ -158,9 +164,11 @@ void GameState::render() {
     
     cleardevice(); // 清屏
     // 顶部深蓝条 (720p适配)
-    setfillcolor(RGB(0, 84, 153));
-    solidrectangle(0, 0, 1280, 100);    // 页面标题
+    setfillcolor(RGB(0, 84, 153));    solidrectangle(0, 0, 1280, 100);    // 页面标题
     pageTitle.draw();
+    
+    // 状态文本（右上角）
+    renderStatusText();
     
     // 获取当前鼠标位置
     POINT currentMousePos;
@@ -171,39 +179,62 @@ void GameState::render() {
     returnButton.drawWithHover(currentMousePos.x, currentMousePos.y);    // 悔棋按钮 - 永远显示，但根据栈状态改变颜色和可按状态
     if (board.canUndo()) {
         // 有历史记录时显示蓝色，可按
-        Button enabledUndoButton(1150, 340, 100, 40, _T("悔棋"), 
+        Button enabledUndoButton(1150, 350, 100, 40, _T("悔棋"), 
                                  RGB(0, 120, 215), RGB(0, 84, 153), WHITE, true);
         enabledUndoButton.drawWithHover(currentMousePos.x, currentMousePos.y);
     } else {
         // 没有历史记录时显示灰色，不可按
-        Button disabledUndoButton(1150, 340, 100, 40, _T("悔棋"), 
+        Button disabledUndoButton(1150, 350, 100, 40, _T("悔棋"), 
                                   RGB(128, 128, 128), RGB(96, 96, 96), RGB(192, 192, 192), false);
         disabledUndoButton.drawWithHover(currentMousePos.x, currentMousePos.y);
     }
-    
-    // 重新开始按钮 - 永远显示为橙色
+      // 重新开始按钮 - 永远显示为橙色
     restartButton.drawWithHover(currentMousePos.x, currentMousePos.y);
+      // 提示按钮 - 显示为蓝色主题，暂时总是可按
+    hintButton.drawWithHover(currentMousePos.x, currentMousePos.y);
     
     // 渲染图例
     renderLegend();
     // 渲染棋盘
     board.render();
+    // 搜索提示状态：绘制文本
+    if (hintSearching) {
+        settextcolor(RGB(255, 255, 0));
+        settextstyle(24, 0, _T("微软雅黑"));
+        outtextxy(600, 50, _T("Searching..."));
+    }
+    // 如果已有提示，绘制高亮框
+    if (hintFromIndex >= 0 && hintToIndex >= 0) {
+        // 高亮起始棋子（红框）
+        int fx = EnglishCoords[hintFromIndex].first;
+        int fy = EnglishCoords[hintFromIndex].second;
+        setlinecolor(RGB(255,0,0)); setlinestyle(PS_SOLID,3);
+        rectangle(fx, fy, fx + 70, fy + 70);
+        // 高亮目标位置（绿框）
+        int tx = EnglishCoords[hintToIndex].first;
+        int ty = EnglishCoords[hintToIndex].second;
+        setlinecolor(RGB(0,255,0)); setlinestyle(PS_SOLID,3);
+        rectangle(tx, ty, tx + 70, ty + 70);
+    }
 }
 
-StateNode* GameState::handleEvent() {
+StateNode* GameState::handleEvent() {    // 清除旧的提示高亮，等待新的点击
+    hintFromIndex = -1;
+    hintToIndex = -1;
     // 直接获取鼠标点击位置并判断按钮
     POINT pt;
     GetCursorPos(&pt);
-    ScreenToClient(GetForegroundWindow(), &pt);      
+    ScreenToClient(GetForegroundWindow(), &pt);
     if (returnButton.isClicked(pt.x, pt.y)) {
         // 不重置游戏状态，保持棋盘当前状态
         // boardInitialized = false; // 🔧 移除这行，保持棋盘状态
         return &chooseGame; // 点击返回回到游戏选择界面
-    }
-      // 处理悔棋按钮点击 - 检查按钮区域而不是特定按钮对象
-    if (pt.x >= 1150 && pt.x <= 1250 && pt.y >= 340 && pt.y <= 380) {
+    }      // 处理悔棋按钮点击 - 检查按钮区域而不是特定按钮对象
+    if (undoButton.isClicked(pt.x,pt.y)) {
         if (board.canUndo()) {  // 只在有历史记录时执行悔棋
             board.undoMove();  // 执行悔棋
+            // 清除状态文本，因为棋局已改变
+            setStatusText(_T(""), RGB(255, 255, 255));
         }
         return this;  // 保持在游戏状态
     }
@@ -217,6 +248,9 @@ StateNode* GameState::handleEvent() {
     if (board.handleClick(pt.x, pt.y)) {
         // 如果棋盘状态发生了改变（玩家移动了棋子），标记游戏已开始
         gameStarted = true;
+        
+        // 清除状态文本，因为棋局已改变
+        setStatusText(_T(""), RGB(255, 255, 255));
           // 检查游戏胜负状态
         if (board.isGameWon()) {
             // 游戏胜利 - 切换到胜利状态界面
@@ -225,6 +259,36 @@ StateNode* GameState::handleEvent() {
             // 游戏失败 - 切换到失败状态界面
             return &gameFailedState;
         }
+    }
+      // 处理提示按钮点击
+    if (hintButton.isClicked(pt.x, pt.y)) {        // 清除之前的目标标记、提示起始标记和旧的提示框
+        board.clearAllTargets();
+        board.clearAllHintFrom();
+        hintFromIndex = -1;
+        hintToIndex = -1;
+        
+        // 标记开始搜索并设置状态文本
+        hintSearching = true;
+        setStatusText(_T("正在搜索..."), RGB(255, 255, 0));  // 黄色文本
+        this->render();
+        FlushBatchDraw();
+        Sleep(200);  // 暂停，确保"正在搜索..."可见
+        
+        // 执行 AI 搜索
+        MoveRecord rec = searchBestMove(board);
+        
+        // 搜索完成，清除提示状态
+        hintSearching = false;
+          // 根据搜索结果设置不同的状态文本
+        if (rec.fromIndex >= 0 && rec.toIndex >= 0) {
+            board.setHintFromAt(rec.fromIndex, true);  // 设置起始位置黄色光环
+            board.setTargetAt(rec.toIndex, true);      // 设置目标位置金色
+            setStatusText(_T("搜索成功"), RGB(0, 255, 0));  // 绿色文本
+        } else {
+            setStatusText(_T("搜索失败"), RGB(255, 0, 0));  // 红色文本
+        }
+        
+        return &gameState;
     }
     
     return this;
@@ -241,21 +305,20 @@ void GameState::BoardInit(const std::string& boardName) {
     
     // 清空旧格子
     board.clearBlocks();
-    
-    // 按照坐标列表添加格子并初始化棋子
+      // 按照坐标列表添加格子并初始化棋子
     for (size_t i = 0; i < coords.size(); ++i) {
         int x = coords[i].first;
         int y = coords[i].second;
         board.addBlock(x, y);
         
-        // English board中间位置(索引15，但我们没有添加那个位置到坐标列表)
-        // 所有位置都有棋子，除了我们在坐标列表中跳过的中间位置
-        board.setPieceAt(board.getBlockCount() - 1, true);
-    }    // 为English board添加中间的空位置
-    if (boardName == "English") {
-        // 在索引15的位置添加空格子 (第4行第4个位置) - 720p适配
-        board.addBlock(605, 375);
-        board.setPieceAt(board.getBlockCount() - 1, false); // 中间位置开始为空
+        // 设置棋子状态：中心位置为空，其他位置有棋子
+        if (boardName == "English" && x == 605 && y == 375) {
+            // 中心位置开始为空
+            board.setPieceAt(board.getBlockCount() - 1, false);
+        } else {
+            // 其他位置都有棋子
+            board.setPieceAt(board.getBlockCount() - 1, true);
+        }
     }
 }
 
@@ -278,8 +341,11 @@ void GameState::resetGame() {
     boardInitialized = false;
     gameStarted = false;
     endgameMode = false;  // 重置残局模式标志
+    board.clearAllTargets();  // 清除目标标记
+    board.clearAllHintFrom();  // 清除提示起始标记
     board.clearBlocks();
     board.clearHistory();  // 🔥 清空悔棋历史
+    setStatusText(_T(""), RGB(255, 255, 255));  // 清除状态文本
 }
 
 // 新增：残局模式初始化，随机多步生成残局
@@ -354,10 +420,21 @@ void GameState::renderLegend() const {
     setlinestyle(PS_SOLID, 2);
     circle(80, 250, 28);
     outtextxy(120, 240, _T("选中棋子"));
-    
-    // 可走位置图例 - 增加间距
+      // 可走位置图例 - 增加间距
     renderLegendMovable(80, 320, 20);
     outtextxy(120, 310, _T("可走位置"));
+    
+    // 提示起始棋子图例
+    renderLegendPiece(80, 390, 20, RGB(70, 130, 220), RGB(20, 50, 120));
+    // 添加黄色光环
+    setlinecolor(RGB(255, 215, 0));  // 金黄色
+    setlinestyle(PS_SOLID, 2);
+    circle(80, 390, 28);
+    outtextxy(120, 380, _T("提示起始"));
+    
+    // 提示目标位置图例
+    renderLegendTarget(80, 460, 20);
+    outtextxy(120, 450, _T("提示目标"));
 }
 
 void GameState::renderLegendPiece(int x, int y, int radius, COLORREF fillColor, COLORREF borderColor, bool hasHighlight) const {
@@ -414,6 +491,39 @@ void GameState::renderLegendMovable(int x, int y, int radius) const {
     setlinecolor(RGB(200, 50, 0));
     setlinestyle(PS_SOLID, 1);
     circle(x, y, radius * 2 / 3);
+}
+
+void GameState::renderLegendTarget(int x, int y, int radius) const {
+    // 将整个格子底座改为金色背景
+    setfillcolor(RGB(255, 215, 100));  // 浅金色背景
+    solidcircle(x, y, radius + 4);
+    
+    // 金色边框，闪亮效果
+    setlinecolor(RGB(255, 215, 0));    // 标准金色边框
+    setlinestyle(PS_SOLID, 3);         // 加粗边框使其更明显
+    circle(x, y, radius + 4);
+    
+    // 内圈金色阴影效果
+    setfillcolor(RGB(255, 235, 150));  // 更浅的金色
+    solidcircle(x, y, radius + 2);
+    
+    // 中心金色星形指示器
+    setfillcolor(RGB(255, 215, 0));    // 鲜艳金色
+    solidcircle(x, y, radius * 2 / 3);
+    
+    // 白色高光效果，使其更加闪亮
+    setfillcolor(RGB(255, 255, 255));
+    solidcircle(x - 4, y - 4, radius / 3);
+    
+    // 深金色边框增强对比度
+    setlinecolor(RGB(184, 134, 11));
+    setlinestyle(PS_SOLID, 1);
+    circle(x, y, radius * 2 / 3);
+    
+    // 外围闪光效果
+    setlinecolor(RGB(255, 215, 0));
+    setlinestyle(PS_SOLID, 2);
+    circle(x, y, radius + 8);
 }
 
 // HowToPlayState 实现 - 玩法介绍页面
@@ -500,4 +610,25 @@ StateNode* HowToPlayState::handleEvent() {
         return &mainMenu; // 返回主菜单
     }
     return this;
+}
+
+// 状态文本方法实现
+void GameState::setStatusText(const TCHAR* text, COLORREF color) {
+    statusText = text;
+    statusTextColor = color;
+}
+
+void GameState::renderStatusText() const {
+    if (statusText && _tcslen(statusText) > 0) {
+        // 在右上角显示状态文本
+        settextcolor(statusTextColor);
+        settextstyle(20, 0, _T("微软雅黑"));
+        
+        // 计算文本宽度以便右对齐
+        int textWidth = textwidth(statusText);
+        int x = 1280 - textWidth - 20;  // 距离右边缘20像素
+        int y = 25;  // 与标题相同的垂直位置
+        
+        outtextxy(x, y, statusText);
+    }
 }

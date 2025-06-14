@@ -22,7 +22,7 @@ void Title::draw() const {
 
 // SingleBlock 类方法实现
 SingleBlock::SingleBlock(int _x, int _y, int _w, int _h)
-    : x(_x), y(_y), width(_w), height(_h), hasPiece(false), isHovered(false), isSelected(false), isMovable(false) {}
+    : x(_x), y(_y), width(_w), height(_h), hasPiece(false), isHovered(false), isSelected(false), isMovable(false), isTarget(false), isHintFrom(false) {}
 bool SingleBlock::containsPiece() const { return hasPiece; }
 void SingleBlock::setPiece(bool val) { hasPiece = val; }
 bool SingleBlock::getHovered() const { return isHovered; }
@@ -31,6 +31,10 @@ bool SingleBlock::getSelected() const { return isSelected; }
 void SingleBlock::setSelected(bool selected) { isSelected = selected; }
 bool SingleBlock::getMovable() const { return isMovable; }
 void SingleBlock::setMovable(bool movable) { isMovable = movable; }
+bool SingleBlock::getTarget() const { return isTarget; }
+void SingleBlock::setTarget(bool target) { isTarget = target; }
+bool SingleBlock::getHintFrom() const { return isHintFrom; }
+void SingleBlock::setHintFrom(bool hintFrom) { isHintFrom = hintFrom; }
 bool SingleBlock::containsPoint(int px, int py) const { return px >= x && px <= x + width && py >= y && py <= y + height; }
 int SingleBlock::getX() const { return x; }
 int SingleBlock::getY() const { return y; }
@@ -53,6 +57,34 @@ void Chessboard::addBlock(int x, int y) {
 void Chessboard::setPieceAt(int index, bool hasPiece) {
     if (index >= 0 && index < blocks.size()) {
         blocks[index].setPiece(hasPiece);
+    }
+}
+
+// 设置指定索引处的目标状态
+void Chessboard::setTargetAt(int index, bool isTarget) {
+    if (index >= 0 && index < blocks.size()) {
+        blocks[index].setTarget(isTarget);
+    }
+}
+
+// 清除所有格子的目标状态
+void Chessboard::clearAllTargets() {
+    for (SingleBlock& block : blocks) {
+        block.setTarget(false);
+    }
+}
+
+// 设置指定索引处的提示起始状态
+void Chessboard::setHintFromAt(int index, bool isHintFrom) {
+    if (index >= 0 && index < blocks.size()) {
+        blocks[index].setHintFrom(isHintFrom);
+    }
+}
+
+// 清除所有格子的提示起始状态
+void Chessboard::clearAllHintFrom() {
+    for (SingleBlock& block : blocks) {
+        block.setHintFrom(false);
     }
 }
 
@@ -174,14 +206,17 @@ bool Chessboard::executeMove(int toIndex) {
     int middleIndex = findBlockAt(middleX, middleY);
     
     if (middleIndex == -1) return false;
-    
-    // 🔥 关键：先保存移动记录，再执行移动
+      // 🔥 关键：先保存移动记录，再执行移动
     moveHistory.push(MoveRecord(selectedIndex, middleIndex, toIndex));
     
     // 执行移动
     blocks[selectedIndex].setPiece(false);  // 起始位置清空
     blocks[middleIndex].setPiece(false);    // 中间棋子被吃掉
     blocks[toIndex].setPiece(true);         // 目标位置放置棋子
+    
+    // 棋局已改变，清除所有目标标记和提示起始标记
+    clearAllTargets();
+    clearAllHintFrom();
     
     clearSelection();
     return true;
@@ -292,8 +327,7 @@ void Chessboard::renderSingleBlock(const SingleBlock& block) const {
             // 悬停光环（中蓝色）
             setlinecolor(RGB(50, 110, 200));
             setlinestyle(PS_SOLID, 2);
-            circle(centerX, centerY, pieceRadius + 6);
-        } else {
+            circle(centerX, centerY, pieceRadius + 6);        } else {
             // 正常状态：标准蓝色棋子，深蓝色边框
             setfillcolor(RGB(70, 130, 220));  // 标准蓝色
             solidcircle(centerX, centerY, pieceRadius);
@@ -305,9 +339,48 @@ void Chessboard::renderSingleBlock(const SingleBlock& block) const {
             setlinestyle(PS_SOLID, 2);
             circle(centerX, centerY, pieceRadius);
         }
-    } else {
+        
+        // 如果是提示起始位置，添加黄色光环
+        if (block.getHintFrom()) {
+            setlinecolor(RGB(255, 215, 0));  // 金黄色
+            setlinestyle(PS_SOLID, 3);       // 加粗光环
+            circle(centerX, centerY, pieceRadius + 8);
+        }} else {
         // 没有棋子时的状态
-        if (block.getMovable()) {
+        if (block.getTarget()) {
+            // 目标位置：金色指示器
+            
+            // 将整个格子底座改为金色背景
+            setfillcolor(RGB(255, 215, 100));  // 浅金色背景
+            solidcircle(centerX, centerY, pieceRadius + 4);
+            
+            // 金色边框，闪亮效果
+            setlinecolor(RGB(255, 215, 0));    // 标准金色边框
+            setlinestyle(PS_SOLID, 4);         // 加粗边框使其更明显
+            circle(centerX, centerY, pieceRadius + 4);
+            
+            // 内圈金色阴影效果
+            setfillcolor(RGB(255, 235, 150));  // 更浅的金色
+            solidcircle(centerX, centerY, pieceRadius + 2);
+            
+            // 中心金色星形指示器
+            setfillcolor(RGB(255, 215, 0));    // 鲜艳金色
+            solidcircle(centerX, centerY, pieceRadius * 2 / 3);
+            
+            // 白色高光效果，使其更加闪亮
+            setfillcolor(RGB(255, 255, 255));
+            solidcircle(centerX - 6, centerY - 6, pieceRadius / 3);
+            
+            // 深金色边框增强对比度
+            setlinecolor(RGB(184, 134, 11));
+            setlinestyle(PS_SOLID, 2);
+            circle(centerX, centerY, pieceRadius * 2 / 3);
+            
+            // 外围闪光效果（可选）
+            setlinecolor(RGB(255, 215, 0));
+            setlinestyle(PS_SOLID, 2);
+            circle(centerX, centerY, pieceRadius + 8);
+        } else if (block.getMovable()) {
             // 可移动位置：橙红色指示器
             
             // 将整个格子底座改为橙红色背景
@@ -408,11 +481,13 @@ bool Chessboard::undoMove() {
     // 获取最近的移动记录
     MoveRecord lastMove = moveHistory.top();
     moveHistory.pop();
-    
-    // 逆向操作：恢复棋盘状态
+      // 逆向操作：恢复棋盘状态
     blocks[lastMove.fromIndex].setPiece(true);      // 恢复起始位置的棋子
     blocks[lastMove.middleIndex].setPiece(true);    // 恢复被吃掉的棋子
     blocks[lastMove.toIndex].setPiece(false);       // 清空目标位置
+      // 棋局已改变，清除所有目标标记和提示起始标记
+    clearAllTargets();
+    clearAllHintFrom();
     
     clearSelection();  // 清除当前选择状态
     return true;

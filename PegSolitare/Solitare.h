@@ -71,6 +71,8 @@ private:
     bool isHovered;    // 是否被鼠标悬停
     bool isSelected;   // 是否被选中（红色状态）
     bool isMovable;    // 是否可移动到（蓝色状态）
+    bool isTarget;     // 是否为目标位置（金色状态）
+    bool isHintFrom;   // 是否为提示起始位置（黄色光环）
 public:
     // 构造函数：设置坐标、尺寸，初始无棋子
     SingleBlock(int _x, int _y, int _w, int _h);
@@ -86,10 +88,16 @@ public:
     // 选中状态相关方法
     bool getSelected() const;
     void setSelected(bool selected);
-    
-    // 可移动状态相关方法
+      // 可移动状态相关方法
     bool getMovable() const;
     void setMovable(bool movable);
+      // 目标状态相关方法
+    bool getTarget() const;
+    void setTarget(bool target);
+    
+    // 提示起始位置状态相关方法
+    bool getHintFrom() const;
+    void setHintFrom(bool hintFrom);
     
     // 检测点是否在格子内
     bool containsPoint(int px, int py) const;
@@ -129,9 +137,16 @@ public:
     bool handleClick(int mouseX, int mouseY);
     void render() const;
     void renderBlockAt(int index) const;
-    
-    // 查询指定索引处是否有棋子
+      // 查询指定索引处是否有棋子
     bool hasPieceAt(int index) const;
+      // 目标位置标记方法
+    void setTargetAt(int index, bool isTarget);
+    void clearAllTargets();
+    
+    // 提示起始位置标记方法
+    void setHintFromAt(int index, bool isHintFrom);
+    void clearAllHintFrom();
+    
     // 生成所有可能的反向移动
     std::vector<MoveRecord> getReverseMoves() const;
     // 应用反向移动
@@ -258,22 +273,29 @@ public:
 
 class GameState : public StateNode {
 private:
-    Chessboard board;
-    bool boardInitialized = false;
+    Chessboard board;    bool boardInitialized = false;
     bool gameStarted = false;  // 跟踪游戏是否已经开始
     bool endgameMode = false;   // 新增标志：是否残局模式
     Title pageTitle;
     Button returnButton;
     Button undoButton;  // 悔棋按钮
     Button restartButton;  // 重新开始按钮
+    Button hintButton;  // 提示按钮
     
-    // 图例渲染方法
+    // 状态文本相关
+    const TCHAR* statusText = _T("");  // 状态文本内容
+    COLORREF statusTextColor = RGB(255, 255, 255);  // 状态文本颜色    // 图例渲染方法
     void renderLegend() const;
     void renderLegendPiece(int x, int y, int radius, COLORREF fillColor, COLORREF borderColor, bool hasHighlight = true) const;
     void renderLegendMovable(int x, int y, int radius) const;
+    void renderLegendTarget(int x, int y, int radius) const;
+    
+    // 状态文本方法
+    void setStatusText(const TCHAR* text, COLORREF color = RGB(255, 255, 255));
+    void renderStatusText() const;
     
 public:
-    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,340,100,40,_T("悔棋")), restartButton(1150,390,100,40,_T("重新开始"), RGB(255, 140, 0), RGB(230, 120, 0), WHITE) {}  // 重新开始按钮设置为橙色
+    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,350,100,40,_T("悔棋")), restartButton(1150,400,100,40,_T("重新开始"), RGB(255, 140, 0), RGB(230, 120, 0), WHITE), hintButton(1150,300,100,40,_T("提示"), RGB(0, 120, 215), RGB(0, 84, 153), WHITE) {}  // 提示按钮：蓝色主题，与悔棋按钮相同颜色，等间距排列
     void render() override;
     StateNode* handleEvent() override;
     // 修改为非内联声明
