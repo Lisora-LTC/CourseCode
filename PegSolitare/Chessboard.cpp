@@ -293,10 +293,11 @@ void Chessboard::renderSingleBlock(const SingleBlock& block) const {
     setlinestyle(PS_SOLID, 2);
     solidcircle(centerX, centerY, pieceRadius + 4);
     circle(centerX, centerY, pieceRadius + 4);
-    
-    // 内圈阴影效果（浅蓝色）
+      // 内圈阴影效果（浅蓝色）
     setfillcolor(RGB(240, 245, 255));  // 极浅蓝色
-    solidcircle(centerX, centerY, pieceRadius + 2);    if (block.containsPiece()) {
+    solidcircle(centerX, centerY, pieceRadius + 2);
+    
+    if (block.containsPiece()) {
         // 根据状态设置不同的棋子样式
         if (block.getSelected()) {
             // 选中状态：鲜艳绿色棋子（对比色突出显示）
@@ -339,13 +340,13 @@ void Chessboard::renderSingleBlock(const SingleBlock& block) const {
             setlinestyle(PS_SOLID, 2);
             circle(centerX, centerY, pieceRadius);
         }
-        
-        // 如果是提示起始位置，添加黄色光环
+          // 如果是提示起始位置，添加黄色光环
         if (block.getHintFrom()) {
             setlinecolor(RGB(255, 215, 0));  // 金黄色
             setlinestyle(PS_SOLID, 3);       // 加粗光环
             circle(centerX, centerY, pieceRadius + 8);
-        }} else {
+        }
+    } else {
         // 没有棋子时的状态
         if (block.getTarget()) {
             // 目标位置：金色指示器
@@ -501,5 +502,65 @@ void Chessboard::clearHistory() {
     // 清空移动历史记录栈
     while (!moveHistory.empty()) {
         moveHistory.pop();
+    }
+}
+
+// 全局图片渲染函数实现
+void renderImage(const TCHAR* imageName, const TCHAR* displayName) {
+    static bool imageLoaded = false;
+    static IMAGE boardImage;
+    static TCHAR lastImageName[MAX_PATH] = _T("");
+    
+    // 检查是否需要重新加载图片（图片名称不同或第一次加载）
+    if (!imageLoaded || _tcscmp(lastImageName, imageName) != 0) {
+        loadimage(&boardImage, imageName);
+        _tcscpy_s(lastImageName, imageName);
+        imageLoaded = true;
+    }
+    
+    // 获取图片尺寸
+    int imgWidth = boardImage.getwidth();
+    int imgHeight = boardImage.getheight();
+    
+    // 检查图片是否有效（宽度和高度大于0）
+    if (imgWidth > 0 && imgHeight > 0) {
+        // 在图片上方添加说明文字
+        LOGFONT labelFont;
+        gettextstyle(&labelFont);
+        labelFont.lfHeight = 36; // 字体从28调大到36
+        labelFont.lfWidth = 0;
+        labelFont.lfWeight = FW_BOLD;
+        labelFont.lfQuality = ANTIALIASED_QUALITY;
+        _tcscpy_s(labelFont.lfFaceName, _T("微软雅黑"));
+        settextstyle(&labelFont);
+        settextcolor(RGB(0, 84, 153));
+        setbkmode(TRANSPARENT);
+        
+        const TCHAR* label = displayName;
+        int labelWidth = textwidth(label);
+        outtextxy(640 - labelWidth/2, 150, label); // 标题位置调整到Y=150
+        
+        // 图片位置固定 - 在标题下方合适距离
+        int imgX = (1280 - imgWidth) / 2;
+        int imgY = 210; // 图片下移到Y=210，增加与标题的间距
+        
+        // 显示图片
+        putimage(imgX, imgY, &boardImage);
+    } else {
+        // 图片加载失败，显示提示信息
+        LOGFONT font;
+        gettextstyle(&font);
+        font.lfHeight = 24;
+        font.lfWidth = 0;
+        font.lfWeight = FW_NORMAL;
+        font.lfQuality = ANTIALIASED_QUALITY;
+        _tcscpy_s(font.lfFaceName, _T("微软雅黑"));
+        settextstyle(&font);
+        settextcolor(RGB(0, 84, 153));
+        setbkmode(TRANSPARENT);
+        
+        const TCHAR* errorText = _T("图片加载失败，请检查文件路径");
+        int textWidth = textwidth(errorText);
+        outtextxy(640 - textWidth/2, 350, errorText);
     }
 }

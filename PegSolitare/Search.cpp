@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <bitset>
 #include <algorithm>
+#include <chrono>
+#include <limits>
 
 // 自定义哈希和相等比较，用于 Coord (std::pair<int,int>)
 struct CoordHash {
@@ -18,7 +20,10 @@ struct CoordEqual {
 
 using State = uint64_t;                // 用于位掩码表示棋盘状态
 const int MAX_MOVES = 100;             // 最大搜索深度
+const int SEARCH_TIMEOUT_MS = 1000;    // 搜索超时时间（毫秒）
 static std::vector<MoveRecord> moves;  // 存储所有可能的跳跃(move.from, move.mid, move.to)
+static std::chrono::steady_clock::time_point searchStartTime;  // 搜索开始时间
+static bool searchTimedOut = false;    // 搜索是否超时
 
 // 生成所有合法跳跃三元组
 static void initMoves(int n, const std::vector<Coord>& coords) {
@@ -69,6 +74,14 @@ static State encode(const std::vector<int>& st) {
 // DFS 辅助
 static bool dfs(State s, int g, int bound, int& nextBound,
                 std::vector<MoveRecord>& path) {
+    // 检查是否超时
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - searchStartTime);
+    if (elapsed.count() >= SEARCH_TIMEOUT_MS) {
+        searchTimedOut = true;
+        return false;
+    }
+    
     int f = g + heuristic(s);
     if (f > bound) {
         nextBound = std::min(nextBound, f);
@@ -96,13 +109,20 @@ static bool dfs(State s, int g, int bound, int& nextBound,
 // IDA*搜索，返回完整路径
 static bool idaStar(State start, std::vector<MoveRecord>& result, int n, const std::vector<Coord>& coords) {
     initMoves(n, coords);
+    searchTimedOut = false;  // 重置超时标志
     int bound = heuristic(start);
     while (true) {
+        if (searchTimedOut) {
+            return false;  // 超时返回失败
+        }
         int nextBound = std::numeric_limits<int>::max();
         std::vector<MoveRecord> path;
         if (dfs(start, 0, bound, nextBound, path)) {
             result = path;
             return true;
+        }
+        if (searchTimedOut) {
+            return false;  // 超时返回失败
         }
         if (nextBound == std::numeric_limits<int>::max()) return false;
         bound = nextBound;
@@ -111,6 +131,9 @@ static bool idaStar(State start, std::vector<MoveRecord>& result, int n, const s
 
 // 对外接口: 返回第一步走法
 MoveRecord searchBestMove(const Chessboard& board) {
+    // 记录搜索开始时间
+    searchStartTime = std::chrono::steady_clock::now();
+    
     int n = board.getBlockCount();
     std::vector<int> st(n);
     for (int i = 0; i < n; ++i) st[i] = board.hasPieceAt(i) ? 1 : 0;
@@ -120,5 +143,5 @@ MoveRecord searchBestMove(const Chessboard& board) {
     if (idaStar(s, path, n, EnglishCoords) && !path.empty()) {
         return path[0];
     }
-    return MoveRecord(-1, -1, -1);
+    return MoveRecord(-1, -1, -1);  // 搜索失败或超时
 }

@@ -17,26 +17,9 @@ RestartConfirmState restartConfirmState;
 
 // ExitState 实现
 void ExitState::render() {
-    // 不清屏，直接在当前画面上绘制对话框
-    
-    // 创建模糊效果：在背景上绘制点状图案来模拟模糊
-    setfillcolor(RGB(200, 210, 220)); // 浅灰蓝色点
-    for (int i = 0; i < 1280; i += 4) {
-        for (int j = 0; j < 720; j += 4) {
-            if ((i + j) % 8 == 0) { // 创建棋盘格效果
-                solidcircle(i, j, 1);
-            }
-        }
-    }
-    
-    // 再添加一层半透明效果（用网格模拟）
-    setlinecolor(RGB(240, 248, 255)); // 与背景色相近的颜色
-    for (int i = 0; i < 1280; i += 2) {
-        line(i, 0, i, 720);
-    }
-    for (int j = 0; j < 720; j += 2) {
-        line(0, j, 1280, j);
-    }
+    // 全屏背景遮蔽
+    setfillcolor(RGB(240, 245, 250)); // 浅蓝白色背景
+    solidrectangle(0, 0, 1280, 720);
     
     // 在屏幕中央弹出白色对话框 (720p适配)
     setfillcolor(WHITE);
@@ -84,26 +67,9 @@ StateNode* ExitState::handleEvent() {
 
 // ContinueGameState - 继续游戏确认状态
 void ContinueGameState::render() {
-    // 不清屏，直接在当前画面上绘制对话框
-    
-    // 创建模糊效果：在背景上绘制点状图案来模拟模糊
-    setfillcolor(RGB(200, 210, 220)); // 浅灰蓝色点
-    for (int i = 0; i < 1280; i += 4) {
-        for (int j = 0; j < 720; j += 4) {
-            if ((i + j) % 8 == 0) { // 创建棋盘格效果
-                solidcircle(i, j, 1);
-            }
-        }
-    }
-    
-    // 再添加一层半透明效果（用网格模拟）
-    setlinecolor(RGB(240, 248, 255)); // 与背景色相近的颜色
-    for (int i = 0; i < 1280; i += 2) {
-        line(i, 0, i, 720);
-    }
-    for (int j = 0; j < 720; j += 2) {
-        line(0, j, 1280, j);
-    }
+    // 全屏背景遮蔽
+    setfillcolor(RGB(240, 245, 250)); // 浅蓝白色背景
+    solidrectangle(0, 0, 1280, 720);
     
     // 在屏幕中央弹出白色对话框 (720p适配)
     setfillcolor(WHITE);
@@ -157,26 +123,9 @@ StateNode* ContinueGameState::handleEvent() {
 
 // RestartConfirmState - 重新开始确认状态
 void RestartConfirmState::render() {
-    // 不清屏，直接在当前画面上绘制对话框
-    
-    // 创建橙色调的模糊效果：在背景上绘制点状图案来模拟模糊
-    setfillcolor(RGB(255, 200, 150)); // 浅橙色点
-    for (int i = 0; i < 1280; i += 4) {
-        for (int j = 0; j < 720; j += 4) {
-            if ((i + j) % 8 == 0) { // 创建棋盘格效果
-                solidcircle(i, j, 1);
-            }
-        }
-    }
-    
-    // 再添加一层半透明效果（用网格模拟）
-    setlinecolor(RGB(255, 240, 220)); // 浅橙色网格
-    for (int i = 0; i < 1280; i += 2) {
-        line(i, 0, i, 720);
-    }
-    for (int j = 0; j < 720; j += 2) {
-        line(0, j, 1280, j);
-    }
+    // 全屏背景遮蔽
+    setfillcolor(RGB(255, 245, 235)); // 浅橙白色背景
+    solidrectangle(0, 0, 1280, 720);
     
     // 绘制橙色主题的对话框
     setfillcolor(RGB(255, 248, 240)); // 温暖的橙白色背景
@@ -257,26 +206,9 @@ StateNode* RestartConfirmState::handleEvent() {
 
 // GameFailedState 实现
 void GameFailedState::render() {
-    // 不清屏，直接在当前画面上绘制对话框
-    
-    // 创建模糊效果：在背景上绘制点状图案来模拟模糊
-    setfillcolor(RGB(200, 210, 220)); // 浅灰蓝色点
-    for (int i = 0; i < 1280; i += 4) {
-        for (int j = 0; j < 720; j += 4) {
-            if ((i + j) % 8 == 0) { // 创建棋盘格效果
-                solidcircle(i, j, 1);
-            }
-        }
-    }
-    
-    // 再添加一层半透明效果（用网格模拟）
-    setlinecolor(RGB(240, 248, 255)); // 与背景色相近的颜色
-    for (int i = 0; i < 1280; i += 2) {
-        line(i, 0, i, 720);
-    }
-    for (int j = 0; j < 720; j += 2) {
-        line(0, j, 1280, j);
-    }
+    // 全屏背景遮蔽
+    setfillcolor(RGB(245, 242, 238)); // 浅暖白色背景
+    solidrectangle(0, 0, 1280, 720);
     
     // 绘制温和橙红色的对话框
     setfillcolor(RGB(250, 240, 230)); // 温暖的米白色背景
@@ -353,26 +285,9 @@ StateNode* GameFailedState::handleEvent() {
 
 // GameWonState 实现
 void GameWonState::render() {
-    // 不清屏，直接在当前画面上绘制对话框
-    
-    // 创建模糊效果：在背景上绘制点状图案来模拟模糊
-    setfillcolor(RGB(200, 210, 220)); // 浅灰蓝色点
-    for (int i = 0; i < 1280; i += 4) {
-        for (int j = 0; j < 720; j += 4) {
-            if ((i + j) % 8 == 0) { // 创建棋盘格效果
-                solidcircle(i, j, 1);
-            }
-        }
-    }
-    
-    // 再添加一层半透明效果（用网格模拟）
-    setlinecolor(RGB(240, 248, 255)); // 与背景色相近的颜色
-    for (int i = 0; i < 1280; i += 2) {
-        line(i, 0, i, 720);
-    }
-    for (int j = 0; j < 720; j += 2) {
-        line(0, j, 1280, j);
-    }
+    // 全屏背景遮蔽
+    setfillcolor(RGB(250, 248, 240)); // 浅金白色背景
+    solidrectangle(0, 0, 1280, 720);
     
     // 绘制金色胜利对话框
     setfillcolor(RGB(255, 248, 220)); // 淡金色背景
