@@ -324,4 +324,7 @@ extern RestartConfirmState restartConfirmState;  // 新增重新开始确认状�
 
 void init();       // 初始化图形界面
 
+// 全局图片渲染函数
+void renderImage(const TCHAR* imageName, const TCHAR* displayName);  // 渲染指定图片并显示指定标题
+
 #endif // SOLITARE_H

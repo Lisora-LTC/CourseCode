@@ -69,55 +69,8 @@ void ChooseGameState::render() {
     ScreenToClient(GetForegroundWindow(), &currentMousePos);
     
     // 返回按钮（带悬停效果）
-    returnButton.drawWithHover(currentMousePos.x, currentMousePos.y);
-    
-    // 加载并显示英式棋盘图片
-    static bool imageLoaded = false;
-    static IMAGE boardImage;
-    if (!imageLoaded) {
-        loadimage(&boardImage, _T("EnglishBoard_resized.png"));
-        imageLoaded = true;
-    }
-    
-    // 获取图片尺寸
-    int imgWidth = boardImage.getwidth();
-    int imgHeight = boardImage.getheight();    // 检查图片是否有效（宽度和高度大于0）
-    if (imgWidth > 0 && imgHeight > 0) {        // 在图片上方添加说明文字
-        LOGFONT labelFont;
-        gettextstyle(&labelFont);
-        labelFont.lfHeight = 36; // 字体从28调大到36
-        labelFont.lfWidth = 0;
-        labelFont.lfWeight = FW_BOLD;
-        labelFont.lfQuality = ANTIALIASED_QUALITY;
-        _tcscpy_s(labelFont.lfFaceName, _T("微软雅黑"));
-        settextstyle(&labelFont);
-          settextcolor(RGB(0, 84, 153));
-        setbkmode(TRANSPARENT);
-        const TCHAR* label = _T("英式棋盘");
-        int labelWidth = textwidth(label);
-        outtextxy(640 - labelWidth/2, 150, label); // 标题位置调整到Y=150
-          // 图片位置固定 - 在标题下方合适距离
-        int imgX = (1280 - imgWidth) / 2;
-        int imgY = 210; // 图片下移到Y=210，增加与标题的间距
-        
-        // 显示图片
-        putimage(imgX, imgY, &boardImage);
-    } else {
-        // 图片加载失败，显示提示信息
-        LOGFONT font;
-        gettextstyle(&font);
-        font.lfHeight = 24;
-        font.lfWidth = 0;
-        font.lfWeight = FW_NORMAL;
-        font.lfQuality = ANTIALIASED_QUALITY;
-        _tcscpy_s(font.lfFaceName, _T("微软雅黑"));
-        settextstyle(&font);
-          settextcolor(RGB(0, 84, 153));
-        setbkmode(TRANSPARENT);
-        const TCHAR* errorText = _T("英式孔明棋棋盘布局");
-        int textWidth = textwidth(errorText);
-        outtextxy(640 - textWidth/2, 380, errorText); // 相应调整错误提示位置
-    }
+    returnButton.drawWithHover(currentMousePos.x, currentMousePos.y);    // 调用全局图片渲染函数
+    renderImage(_T("EnglishBoard_resized.png"), _T("英式棋盘"));
     // 绘制开始游戏按钮（下移到580位置，与图片保持距离）
     startButton.drawWithHover(currentMousePos.x, currentMousePos.y);
     // 绘制残局模式按钮
@@ -192,17 +145,10 @@ void GameState::render() {
     restartButton.drawWithHover(currentMousePos.x, currentMousePos.y);
       // 提示按钮 - 显示为蓝色主题，暂时总是可按
     hintButton.drawWithHover(currentMousePos.x, currentMousePos.y);
-    
-    // 渲染图例
+      // 渲染图例
     renderLegend();
     // 渲染棋盘
     board.render();
-    // 搜索提示状态：绘制文本
-    if (hintSearching) {
-        settextcolor(RGB(255, 255, 0));
-        settextstyle(24, 0, _T("微软雅黑"));
-        outtextxy(600, 50, _T("Searching..."));
-    }
     // 如果已有提示，绘制高亮框
     if (hintFromIndex >= 0 && hintToIndex >= 0) {
         // 高亮起始棋子（红框）
@@ -304,8 +250,7 @@ void GameState::BoardInit(const std::string& boardName) {
     const std::vector<Coord>& coords = it->second;
     
     // 清空旧格子
-    board.clearBlocks();
-      // 按照坐标列表添加格子并初始化棋子
+    board.clearBlocks();    // 按照坐标列表添加格子并初始化棋子
     for (size_t i = 0; i < coords.size(); ++i) {
         int x = coords[i].first;
         int y = coords[i].second;
@@ -352,14 +297,12 @@ void GameState::resetGame() {
 void GameState::startEndgame() {
     // 构建空棋盘
     board.clearBlocks();
-    // 添加所有格子并置空
+    // 添加所有格子并置空（包括中心位置）
     for (const auto& coord : AllBoards.at("English")) {
         board.addBlock(coord.first, coord.second);
         board.setPieceAt(board.getBlockCount() - 1, false);
     }
-    // 添加中心空格
-    board.addBlock(605, 375);
-    board.setPieceAt(board.getBlockCount() - 1, false);
+    // 注意：不需要再单独添加中心空格，因为已经在上面的循环中添加了
     
     // 随机选择最后一颗棋子位置
     std::srand((unsigned)std::time(nullptr));
@@ -622,13 +565,23 @@ void GameState::renderStatusText() const {
     if (statusText && _tcslen(statusText) > 0) {
         // 在右上角显示状态文本
         settextcolor(statusTextColor);
-        settextstyle(20, 0, _T("微软雅黑"));
+        
+        // 设置字体样式（与标题一致：60pt，抗锯齿）
+        LOGFONT font;
+        gettextstyle(&font);
+        font.lfHeight = 60; // 与标题一致的字体大小
+        font.lfWidth = 0;
+        font.lfWeight = FW_NORMAL;
+        font.lfQuality = ANTIALIASED_QUALITY; // 抗锯齿
+        _tcscpy_s(font.lfFaceName, _T("微软雅黑"));
+        settextstyle(&font);
         
         // 计算文本宽度以便右对齐
         int textWidth = textwidth(statusText);
         int x = 1280 - textWidth - 20;  // 距离右边缘20像素
         int y = 25;  // 与标题相同的垂直位置
         
+        setbkmode(TRANSPARENT);
         outtextxy(x, y, statusText);
     }
 }
