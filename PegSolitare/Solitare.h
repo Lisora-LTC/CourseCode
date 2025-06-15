@@ -5,12 +5,12 @@
 #include <easyx.h>
 #include <tchar.h>
 #include <string>
-#include <unordered_map> // 添加头文件
-#include <stack>         // 添加栈头文件用于悔棋功能
-#include "BoardsConfig.h" // 引入 BoardsConfig
+#include <unordered_map>
+#include <stack>
+#include "BoardsConfig.h"
 using namespace std;
 
-// 1. 前向声明
+// 前向声明
 class MainMenuState;
 class ChooseGameState;
 class HowToPlayState;
@@ -19,9 +19,9 @@ class GameState;
 class ContinueGameState;
 class GameFailedState;
 class GameWonState;
-class RestartConfirmState;  // 新增重新开始确认状态类
+class RestartConfirmState;
 
-// 2. extern 全局对象声明
+// 全局对象声明
 extern MainMenuState mainMenu;
 extern ChooseGameState chooseGame;
 extern HowToPlayState howToPlay;
@@ -30,13 +30,13 @@ extern GameState   gameState;
 extern ContinueGameState continueGameState;
 extern GameFailedState gameFailedState;
 extern GameWonState gameWonState;
-extern RestartConfirmState restartConfirmState;  // 新增重新开始确认状态对象
+extern RestartConfirmState restartConfirmState;
 
-// 移动记录结构体，用于悔棋功能
+// 移动记录结构体
 struct MoveRecord {
-    int fromIndex;     // 起始位置索引
-    int middleIndex;   // 被吃掉的棋子位置索引
-    int toIndex;       // 目标位置索引
+    int fromIndex;
+    int middleIndex;
+    int toIndex;
     
     MoveRecord(int from, int middle, int to) 
         : fromIndex(from), middleIndex(middle), toIndex(to) {}
@@ -45,79 +45,80 @@ struct MoveRecord {
 class Button {
 private:
     int x, y, width, height;
-    const TCHAR* text; // 修改为 const TCHAR*
-    COLORREF fillColor;    // 按钮填充颜色
-    COLORREF borderColor;  // 按钮边框颜色
-    COLORREF textColor;    // 文字颜色
-    bool enabled;          // 新增：按钮是否可按
+    const TCHAR* text;
+    COLORREF fillColor;
+    COLORREF borderColor;
+    COLORREF textColor;
+    bool enabled;
 
 public:
     Button(int x, int y, int width, int height, const TCHAR* text, 
-           COLORREF fill = RGB(0, 120, 215), COLORREF border = RGB(0, 84, 153), COLORREF textCol = WHITE, bool isEnabled = true); // 修改构造函数，添加可按状态参数
+           COLORREF fill = RGB(0, 120, 215), COLORREF border = RGB(0, 84, 153), COLORREF textCol = WHITE, bool isEnabled = true);
     void draw() const;
-    void drawWithHover(int mouseX, int mouseY) const; // 新增：带悬停效果的绘制方法
-    bool isClicked(int mouseX, int mouseY) const;//const 用来表示不会修改变量，只读
-    bool isHovered(int mouseX, int mouseY) const; // 新增：检测是否悬停
-    void setEnabled(bool isEnabled); // 新增：设置按钮可按状态
-    bool getEnabled() const; // 新增：获取按钮可按状态
+    void drawWithHover(int mouseX, int mouseY) const;
+    bool isClicked(int mouseX, int mouseY) const;
+    bool isHovered(int mouseX, int mouseY) const;
+    void setEnabled(bool isEnabled);
+    bool getEnabled() const;
 };
 
 
 class SingleBlock {
 private:
-    int x, y;         // 左上角坐标
-    int width, height; // 格子尺寸
-    bool hasPiece;     // 是否有棋子
-    bool isHovered;    // 是否被鼠标悬停
-    bool isSelected;   // 是否被选中（红色状态）
-    bool isMovable;    // 是否可移动到（蓝色状态）
-    bool isTarget;     // 是否为目标位置（金色状态）
-    bool isHintFrom;   // 是否为提示起始位置（黄色光环）
+    int x, y;
+    int width, height;
+    bool hasPiece;
+    bool isHovered;
+    bool isSelected;
+    bool isMovable;
+    bool isTarget;
+    bool isHintFrom;
 public:
-    // 构造函数：设置坐标、尺寸，初始无棋子
     SingleBlock(int _x, int _y, int _w, int _h);
     
-    // 棋子状态相关方法
+    // 棋子状态
     bool containsPiece() const;
     void setPiece(bool val);
     
-    // 鼠标悬停相关方法
+    // 鼠标悬停
     bool getHovered() const;
     void setHovered(bool hovered);
     
-    // 选中状态相关方法
+    // 选中状态
     bool getSelected() const;
     void setSelected(bool selected);
-      // 可移动状态相关方法
+    
+    // 可移动状态
     bool getMovable() const;
     void setMovable(bool movable);
-      // 目标状态相关方法
+    
+    // 目标状态
     bool getTarget() const;
     void setTarget(bool target);
     
-    // 提示起始位置状态相关方法
+    // 提示起始位置状态
     bool getHintFrom() const;
     void setHintFrom(bool hintFrom);
     
     // 检测点是否在格子内
     bool containsPoint(int px, int py) const;
     
-    // 获取坐标和尺寸的方法
+    // 获取坐标和尺寸
     int getX() const;
     int getY() const;
     int getWidth() const;
     int getHeight() const;
 };
 
-// 棋盘类，使用 vector 存储 SingleBlock 对象
+// 棋盘类
 class Chessboard {
 private:
-    vector<SingleBlock> blocks; // 格子容器
-    const int BLOCK_SIZE = 70;  // 缩小格子尺寸适配720p
-    int selectedIndex = -1; // 当前选中的棋子索引
-    stack<MoveRecord> moveHistory;  // 移动历史记录栈
+    vector<SingleBlock> blocks;
+    const int BLOCK_SIZE = 70;
+    int selectedIndex = -1;
+    stack<MoveRecord> moveHistory;
     
-    // 私有方法声明
+    // 私有方法
     void selectPiece(int index);
     void clearSelection();
     void showPossibleMoves(int fromIndex);
@@ -125,10 +126,10 @@ private:
     void renderSingleBlock(const SingleBlock& block) const;
 
 public:
-    // 查找指定坐标处的格子索引
+    // 查找格子索引
     int findBlockAt(int x, int y) const;
     
-    // 公有方法声明
+    // 公有方法
     void clearBlocks();
     void addBlock(int x, int y);
     void setPieceAt(int index, bool hasPiece);
@@ -137,35 +138,39 @@ public:
     bool handleClick(int mouseX, int mouseY);
     void render() const;
     void renderBlockAt(int index) const;
-      // 查询指定索引处是否有棋子
+    
+    // 查询是否有棋子
     bool hasPieceAt(int index) const;
-      // 目标位置标记方法
+    
+    // 目标位置标记
     void setTargetAt(int index, bool isTarget);
     void clearAllTargets();
     
-    // 提示起始位置标记方法
+    // 提示起始位置标记
     void setHintFromAt(int index, bool isHintFrom);
     void clearAllHintFrom();
     
     // 生成所有可能的反向移动
     std::vector<MoveRecord> getReverseMoves() const;
-    // 应用反向移动
+    // 反向移动
     void applyReverseMove(const MoveRecord& rec);
     
     // 胜负检测方法
-    bool isGameWon() const;      // 检测是否胜利（只剩一个棋子）
-    bool isGameLost() const;     // 检测是否失败（无路可走）
-    bool canPieceMove(int index) const; // 检测指定棋子是否有可移动位置    // 悔棋相关方法
-    bool undoMove();             // 悔棋方法
-    bool canUndo() const;        // 检查是否可以悔棋
-    void clearHistory();         // 清空历史记录
+    bool isGameWon() const;
+    bool isGameLost() const;
+    bool canPieceMove(int index) const;
+    
+    // 悔棋相关方法
+    bool undoMove();
+    bool canUndo() const;
+    void clearHistory();
 };
 
 // 状态节点类
 class StateNode {
 public:
-    virtual void render() = 0; // 渲染页面
-    virtual StateNode* handleEvent() = 0; // 处理事件并返回下一个状态
+    virtual void render() = 0;
+    virtual StateNode* handleEvent() = 0;
     virtual ~StateNode() = default;
 };
 
@@ -173,25 +178,27 @@ public:
 class ConfirmBase : public StateNode {
 protected:
     // 外观配置
-    COLORREF backgroundColor;    // 背景色
-    COLORREF dialogColor;       // 对话框背景色
-    COLORREF borderColor;       // 对话框边框色
-    COLORREF titleColor;        // 标题颜色
-    COLORREF contentColor;      // 正文颜色
-    COLORREF hintColor;         // 提示文字颜色
+    COLORREF backgroundColor;
+    COLORREF dialogColor;
+    COLORREF borderColor;
+    COLORREF titleColor;
+    COLORREF contentColor;
+    COLORREF hintColor;
     
     // 文本内容
-    const TCHAR* titleText;     // 标题文字
-    const TCHAR* contentText;   // 正文内容
-    const TCHAR* hintText;      // 下方小字提示    // 按钮配置
-    COLORREF yesButtonColor;    // 确认按钮颜色
-    COLORREF noButtonColor;     // 取消按钮颜色
-    const TCHAR* yesButtonText; // 确认按钮文字
-    const TCHAR* noButtonText;  // 取消按钮文字
+    const TCHAR* titleText;
+    const TCHAR* contentText;
+    const TCHAR* hintText;
+    
+    // 按钮配置
+    COLORREF yesButtonColor;
+    COLORREF noButtonColor;
+    const TCHAR* yesButtonText;
+    const TCHAR* noButtonText;
     
     // 按钮对象
-    Button yesButton;           // 确认按钮
-    Button noButton;            // 取消按钮
+    Button yesButton;
+    Button noButton;
     
 public:
     // 构造函数
@@ -209,12 +216,8 @@ public:
         COLORREF noClr = RGB(108, 117, 125),
         const TCHAR* yesText = _T("是"),
         const TCHAR* noText = _T("否")
-    );
-      // 通用渲染方法
+    );    // 通用渲染方法
     virtual void render() override;
-    
-    // 子类需要实现自己的 handleEvent 方法
-    // virtual StateNode* handleEvent() override; // 每个子类自己实现
 };
 
 // 标题类，用于绘制大字号居中标题
@@ -225,15 +228,16 @@ private:
     int y;
 public:
     Title(const TCHAR* txt, int sz, int ypos) : text(txt), fontSize(sz), y(ypos) {}
-    void draw() const; // 移到外部实现
+    void draw() const;
 };
 
 // 主菜单状态类
 class MainMenuState : public StateNode {
-private:    Title pageTitle = Title(_T("孔明棋"), 70, 25);  // 恢复原来的位置，视觉上更好
-    Button startButton = Button(560, 240, 160, 50, _T("开始游戏"));  // 居中: (1280-160)/2 = 560，稍微上移
-    Button howToPlayButton = Button(560, 330, 160, 50, _T("玩法介绍"));  // 间距加大10px
-    Button exitButton = Button(560, 420, 160, 50, _T("退出游戏"));   // 间距加大30px
+private:
+    Title pageTitle = Title(_T("孔明棋"), 70, 25);
+    Button startButton = Button(560, 240, 160, 50, _T("开始游戏"));
+    Button howToPlayButton = Button(560, 330, 160, 50, _T("玩法介绍"));
+    Button exitButton = Button(560, 420, 160, 50, _T("退出游戏"));
 public:
     void render() override;
     StateNode* handleEvent() override;
@@ -241,11 +245,12 @@ public:
 
 // 选择游戏状态类
 class ChooseGameState : public StateNode {
-private:    Title pageTitle = Title(_T("选择游戏"), 60, 25);  // 保持和主菜单一致的y位置
-    Button returnButton = Button(20, 30, 100, 40, _T("返回"));  // 垂直居中：(100-40)/2 = 30
-    Button startButton = Button(450, 580, 160, 50, _T("经典模式"));  // 左侧按钮，改名为经典模式，向左移动
-    Button endgameButton = Button(670, 580, 160, 50, _T("残局模式"));  // 右侧按钮，向右移动
-    bool pendingEndgame = false;  // 标记是否等待开始残局模式
+private:
+    Title pageTitle = Title(_T("选择游戏"), 60, 25);
+    Button returnButton = Button(20, 30, 100, 40, _T("返回"));
+    Button startButton = Button(450, 580, 160, 50, _T("经典模式"));
+    Button endgameButton = Button(670, 580, 160, 50, _T("残局模式"));
+    bool pendingEndgame = false;
 public:
     StateNode* parent = &mainMenu;
     void render() override;
@@ -301,18 +306,21 @@ public:
 
 class GameState : public StateNode {
 private:
-    Chessboard board;    bool boardInitialized = false;
-    bool gameStarted = false;  // 跟踪游戏是否已经开始
-    bool endgameMode = false;   // 新增标志：是否残局模式
+    Chessboard board;
+    bool boardInitialized = false;
+    bool gameStarted = false;
+    bool endgameMode = false;
     Title pageTitle;
     Button returnButton;
-    Button undoButton;  // 悔棋按钮
-    Button restartButton;  // 重新开始按钮
-    Button hintButton;  // 提示按钮
+    Button undoButton;
+    Button restartButton;
+    Button hintButton;
     
     // 状态文本相关
-    const TCHAR* statusText = _T("");  // 状态文本内容
-    COLORREF statusTextColor = RGB(255, 255, 255);  // 状态文本颜色    // 图例渲染方法
+    const TCHAR* statusText = _T("");
+    COLORREF statusTextColor = RGB(255, 255, 255);
+    
+    // 图例渲染方法
     void renderLegend() const;
     void renderLegendPiece(int x, int y, int radius, COLORREF fillColor, COLORREF borderColor, bool hasHighlight = true) const;
     void renderLegendMovable(int x, int y, int radius) const;
@@ -323,21 +331,20 @@ private:
     void renderStatusText() const;
     
 public:
-    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,350,100,40,_T("悔棋")), restartButton(1150,400,100,40,_T("重新开始"), RGB(255, 140, 0), RGB(230, 120, 0), WHITE), hintButton(1150,300,100,40,_T("提示"), RGB(0, 120, 215), RGB(0, 84, 153), WHITE) {}  // 提示按钮：蓝色主题，与悔棋按钮相同颜色，等间距排列
+    GameState() : pageTitle(_T("游戏中"),60,25), returnButton(20,30,100,40,_T("返回")), undoButton(1150,350,100,40,_T("悔棋")), restartButton(1150,400,100,40,_T("重新开始"), RGB(255, 140, 0), RGB(230, 120, 0), WHITE), hintButton(1150,300,100,40,_T("提示"), RGB(0, 120, 215), RGB(0, 84, 153), WHITE) {}
     void render() override;
     StateNode* handleEvent() override;
-    // 修改为非内联声明
     void BoardInit(const std::string& boardName);
     
     // 游戏进度管理方法
     bool isGameStarted() const { return gameStarted; }
-    void resetGame();  // 重置游戏状态
-    void startEndgame();  // 新增残局模式初始化方法
-    bool isEndgameMode() const { return endgameMode; }  // 检查是否是残局模式
-    void restartCurrentMode();  // 重新开始当前模式
+    void resetGame();
+    void startEndgame();
+    bool isEndgameMode() const { return endgameMode; }
+    void restartCurrentMode();
     
     // 悔棋相关方法
-    Chessboard& getBoard() { return board; }  // 提供棋盘访问接口
+    Chessboard& getBoard() { return board; }
 };
 
 
@@ -348,11 +355,11 @@ extern ExitState exitState;
 extern GameState gameState;
 extern GameFailedState gameFailedState;
 extern GameWonState gameWonState;
-extern RestartConfirmState restartConfirmState;  // 新增重新开始确认状态对象
+extern RestartConfirmState restartConfirmState;
 
-void init();       // 初始化图形界面
+void init();
 
 // 全局图片渲染函数
-void renderImage(const TCHAR* imageName, const TCHAR* displayName);  // 渲染指定图片并显示指定标题
+void renderImage(const TCHAR* imageName, const TCHAR* displayName);
 
 #endif // SOLITARE_H
