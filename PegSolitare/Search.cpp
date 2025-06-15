@@ -6,7 +6,7 @@
 #include <chrono>
 #include <limits>
 
-// 自定义哈希和相等比较，用于 Coord (std::pair<int,int>)
+// 坐标类型的哈希和比较函数
 struct CoordHash {
     size_t operator()(const Coord& c) const noexcept {
         return std::hash<int>()(c.first) ^ (std::hash<int>()(c.second) << 1);
@@ -18,22 +18,22 @@ struct CoordEqual {
     }
 };
 
-using State = uint64_t;                // 用于位掩码表示棋盘状态
-const int MAX_MOVES = 100;             // 最大搜索深度
-const int SEARCH_TIMEOUT_MS = 1000;    // 搜索超时时间（毫秒）
-static std::vector<MoveRecord> moves;  // 存储所有可能的跳跃(move.from, move.mid, move.to)
-static std::chrono::steady_clock::time_point searchStartTime;  // 搜索开始时间
-static bool searchTimedOut = false;    // 搜索是否超时
+// 搜索相关类型定义和常量
+using State = uint64_t;
+const int MAX_MOVES = 100;
+const int SEARCH_TIMEOUT_MS = 1000;
+static std::vector<MoveRecord> moves;
+static std::chrono::steady_clock::time_point searchStartTime;
+static bool searchTimedOut = false;
 
-// 生成所有合法跳跃三元组
+// 生成所有合法跳跃组合
 static void initMoves(int n, const std::vector<Coord>& coords) {
     if (!moves.empty()) return;
-    // 坐标到索引映射
     std::unordered_map<Coord,int, CoordHash, CoordEqual> idx;
     for (int i = 0; i < n; ++i) {
         idx[coords[i]] = i;
     }
-    int B = 70; // 单格像素间距
+    int B = 70;
     int dirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
     for (int i = 0; i < n; ++i) {
         int x = coords[i].first;
@@ -52,17 +52,17 @@ static void initMoves(int n, const std::vector<Coord>& coords) {
     }
 }
 
-// 计算启发函数: 当前棋子数减1
+// 启发函数计算
 static int heuristic(State s) {
     return (int)std::bitset<64>(s).count() - 1;
 }
 
-// 判断是否目标状态(仅剩1颗棋子)
+// 目标状态判断
 static bool isGoal(State s) {
     return std::bitset<64>(s).count() == 1;
 }
 
-// 将棋盘转换为位掩码
+// 棋盘状态编码
 static State encode(const std::vector<int>& st) {
     State s = 0;
     for (int i = 0; i < (int)st.size(); ++i) {
@@ -71,10 +71,9 @@ static State encode(const std::vector<int>& st) {
     return s;
 }
 
-// DFS 辅助
+// 深度优先搜索
 static bool dfs(State s, int g, int bound, int& nextBound,
                 std::vector<MoveRecord>& path) {
-    // 检查是否超时
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - searchStartTime);
     if (elapsed.count() >= SEARCH_TIMEOUT_MS) {
@@ -94,7 +93,6 @@ static bool dfs(State s, int g, int bound, int& nextBound,
         int mid = m.middleIndex;
         int to   = m.toIndex;
         State bit = State(1);
-        // 检查合法性: from和mid有子, to无子
         if ((s & (bit<<from)) && (s & (bit<<mid)) && !(s & (bit<<to))) {
             State ns = s;
             ns ^= (bit<<from) | (bit<<mid) | (bit<<to);
@@ -106,14 +104,14 @@ static bool dfs(State s, int g, int bound, int& nextBound,
     return false;
 }
 
-// IDA*搜索，返回完整路径
+// IDA*搜索算法
 static bool idaStar(State start, std::vector<MoveRecord>& result, int n, const std::vector<Coord>& coords) {
     initMoves(n, coords);
-    searchTimedOut = false;  // 重置超时标志
+    searchTimedOut = false;
     int bound = heuristic(start);
     while (true) {
         if (searchTimedOut) {
-            return false;  // 超时返回失败
+            return false;
         }
         int nextBound = std::numeric_limits<int>::max();
         std::vector<MoveRecord> path;
@@ -122,16 +120,15 @@ static bool idaStar(State start, std::vector<MoveRecord>& result, int n, const s
             return true;
         }
         if (searchTimedOut) {
-            return false;  // 超时返回失败
+            return false;
         }
         if (nextBound == std::numeric_limits<int>::max()) return false;
         bound = nextBound;
     }
 }
 
-// 对外接口: 返回第一步走法
+// 搜索最佳移动
 MoveRecord searchBestMove(const Chessboard& board) {
-    // 记录搜索开始时间
     searchStartTime = std::chrono::steady_clock::now();
     
     int n = board.getBlockCount();
@@ -139,9 +136,8 @@ MoveRecord searchBestMove(const Chessboard& board) {
     for (int i = 0; i < n; ++i) st[i] = board.hasPieceAt(i) ? 1 : 0;
     State s = encode(st);
     std::vector<MoveRecord> path;
-    // 使用更新后的 EnglishCoords，现在包含了所有33个位置
     if (idaStar(s, path, n, EnglishCoords) && !path.empty()) {
         return path[0];
     }
-    return MoveRecord(-1, -1, -1);  // 搜索失败或超时
+    return MoveRecord(-1, -1, -1);
 }

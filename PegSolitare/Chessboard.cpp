@@ -1,54 +1,71 @@
 #include "Solitare.h"
-#include <cmath>    // 数学函数如 sqrt, sin, cos
-#include <algorithm> // min, max 函数
+#include <cmath>
+#include <algorithm>
 
 // Title 类方法实现
+// 在屏幕中央绘制标题文字
 void Title::draw() const {
-    // 设置字体样式并测量宽度居中显示 (启用抗锯齿)
     LOGFONT font;
     gettextstyle(&font);
-    font.lfHeight = fontSize; // 恢复原始字体大小
+    font.lfHeight = fontSize;
     font.lfWidth = 0;
     font.lfWeight = FW_NORMAL;
-    font.lfQuality = ANTIALIASED_QUALITY; // 保留抗锯齿
+    font.lfQuality = ANTIALIASED_QUALITY;
     _tcscpy_s(font.lfFaceName, _T("微软雅黑"));
     settextstyle(&font);
     
     int w = textwidth(text);
     settextcolor(WHITE);
     setbkmode(TRANSPARENT);
-    outtextxy(1280/2 - w/2, y, text); // 恢复原始坐标
+    outtextxy(1280/2 - w/2, y, text);
 }
 
 // SingleBlock 类方法实现
+// 构造函数，初始化棋盘格子的基本属性
 SingleBlock::SingleBlock(int _x, int _y, int _w, int _h)
     : x(_x), y(_y), width(_w), height(_h), hasPiece(false), isHovered(false), isSelected(false), isMovable(false), isTarget(false), isHintFrom(false) {}
+// 检查格子是否有棋子
 bool SingleBlock::containsPiece() const { return hasPiece; }
+// 设置格子是否有棋子
 void SingleBlock::setPiece(bool val) { hasPiece = val; }
+// 获取格子悬停状态
 bool SingleBlock::getHovered() const { return isHovered; }
+// 设置格子悬停状态
 void SingleBlock::setHovered(bool hovered) { isHovered = hovered; }
+// 获取格子选中状态
 bool SingleBlock::getSelected() const { return isSelected; }
+// 设置格子选中状态
 void SingleBlock::setSelected(bool selected) { isSelected = selected; }
+// 获取格子可移动状态
 bool SingleBlock::getMovable() const { return isMovable; }
+// 设置格子可移动状态
 void SingleBlock::setMovable(bool movable) { isMovable = movable; }
+// 获取格子目标状态
 bool SingleBlock::getTarget() const { return isTarget; }
+// 设置格子目标状态
 void SingleBlock::setTarget(bool target) { isTarget = target; }
+// 获取格子提示起始状态
 bool SingleBlock::getHintFrom() const { return isHintFrom; }
+// 设置格子提示起始状态
 void SingleBlock::setHintFrom(bool hintFrom) { isHintFrom = hintFrom; }
+// 检查指定坐标是否在格子内
 bool SingleBlock::containsPoint(int px, int py) const { return px >= x && px <= x + width && py >= y && py <= y + height; }
+// 获取格子X坐标
 int SingleBlock::getX() const { return x; }
+// 获取格子Y坐标
 int SingleBlock::getY() const { return y; }
+// 获取格子宽度
 int SingleBlock::getWidth() const { return width; }
+// 获取格子高度
 int SingleBlock::getHeight() const { return height; }
 
 // Chessboard 类方法实现
-
-// 清除所有格子
+// 清空所有棋盘格子
 void Chessboard::clearBlocks() { 
     blocks.clear(); 
 }
 
-// 添加格子的方法，传入左上角坐标
+// 添加新的棋盘格子
 void Chessboard::addBlock(int x, int y) {
     blocks.emplace_back(x, y, BLOCK_SIZE, BLOCK_SIZE);
 }
@@ -60,7 +77,7 @@ void Chessboard::setPieceAt(int index, bool hasPiece) {
     }
 }
 
-// 设置指定索引处的目标状态
+// 设置指定索引格子的目标状态
 void Chessboard::setTargetAt(int index, bool isTarget) {
     if (index >= 0 && index < blocks.size()) {
         blocks[index].setTarget(isTarget);
@@ -74,7 +91,7 @@ void Chessboard::clearAllTargets() {
     }
 }
 
-// 设置指定索引处的提示起始状态
+// 设置指定索引格子的提示起始状态
 void Chessboard::setHintFromAt(int index, bool isHintFrom) {
     if (index >= 0 && index < blocks.size()) {
         blocks[index].setHintFrom(isHintFrom);
@@ -88,23 +105,22 @@ void Chessboard::clearAllHintFrom() {
     }
 }
 
-// 获取格子总数
+// 获取棋盘格子总数
 int Chessboard::getBlockCount() const {
     return blocks.size();
 }
 
-// 更新鼠标悬停状态
+// 根据鼠标位置更新格子悬停状态
 void Chessboard::updateHover(int mouseX, int mouseY) {
     for (SingleBlock& block : blocks) {
         block.setHovered(block.containsPoint(mouseX, mouseY));
     }
 }
 
-// 处理鼠标点击，返回是否有状态改变
+// 处理鼠标点击事件
 bool Chessboard::handleClick(int mouseX, int mouseY) {
     int clickedIndex = -1;
     
-    // 找到被点击的格子
     for (int i = 0; i < blocks.size(); i++) {
         if (blocks[i].containsPoint(mouseX, mouseY)) {
             clickedIndex = i;
@@ -114,18 +130,15 @@ bool Chessboard::handleClick(int mouseX, int mouseY) {
     
     if (clickedIndex == -1) return false;
     
-    // 检查是否点击了可移动的位置
     if (blocks[clickedIndex].getMovable()) {
         return executeMove(clickedIndex);
     }
     
-    // 检查是否点击了有棋子的格子
     if (blocks[clickedIndex].containsPiece()) {
         selectPiece(clickedIndex);
         return true;
     }
     
-    // 点击空格子，清除所有选择
     clearSelection();
     return true;
 }
@@ -138,7 +151,7 @@ void Chessboard::selectPiece(int index) {
     showPossibleMoves(index);
 }
 
-// 清除所有选择状态
+// 清除当前选中状态
 void Chessboard::clearSelection() {
     selectedIndex = -1;
     for (SingleBlock& block : blocks) {
@@ -147,16 +160,14 @@ void Chessboard::clearSelection() {
     }
 }
 
-// 显示可能的移动位置 - 基于实际坐标而非网格
+// 显示指定棋子的可移动位置
 void Chessboard::showPossibleMoves(int fromIndex) {
     if (fromIndex < 0 || fromIndex >= blocks.size()) return;
     
-    // 获取起始位置的实际坐标
     int fromX = blocks[fromIndex].getX();
     int fromY = blocks[fromIndex].getY();
     
-    // 检查四个方向（上下左右）
-    int directions[4][2] = {{0, -70}, {0, 70}, {-70, 0}, {70, 0}}; // 基于BLOCK_SIZE=70
+    int directions[4][2] = {{0, -70}, {0, 70}, {-70, 0}, {70, 0}};
     
     for (int i = 0; i < 4; i++) {
         int middleX = fromX + directions[i][0];
@@ -164,13 +175,10 @@ void Chessboard::showPossibleMoves(int fromIndex) {
         int toX = fromX + 2 * directions[i][0];
         int toY = fromY + 2 * directions[i][1];
         
-        // 查找中间位置和目标位置的索引
         int middleIndex = this->findBlockAt(middleX, middleY);
         int toIndex = this->findBlockAt(toX, toY);
         
-        // 如果找到了有效的中间位置和目标位置
         if (middleIndex != -1 && toIndex != -1) {
-            // 中间有棋子，目标位置为空
             if (blocks[middleIndex].containsPiece() && !blocks[toIndex].containsPiece()) {
                 blocks[toIndex].setMovable(true);
             }
@@ -178,7 +186,7 @@ void Chessboard::showPossibleMoves(int fromIndex) {
     }
 }
 
-// 查找指定坐标处的格子索引
+// 根据坐标查找对应的格子索引
 int Chessboard::findBlockAt(int x, int y) const {
     for (int i = 0; i < blocks.size(); i++) {
         if (blocks[i].getX() == x && blocks[i].getY() == y) {
@@ -188,49 +196,43 @@ int Chessboard::findBlockAt(int x, int y) const {
     return -1;
 }
 
-// 执行移动 - 基于实际坐标
+// 执行棋子移动操作
 bool Chessboard::executeMove(int toIndex) {
     if (selectedIndex == -1 || toIndex < 0 || toIndex >= blocks.size()) return false;
     
-    // 获取起始和目标位置的坐标
     int fromX = blocks[selectedIndex].getX();
     int fromY = blocks[selectedIndex].getY();
     int toX = blocks[toIndex].getX();
     int toY = blocks[toIndex].getY();
     
-    // 计算中间位置坐标
     int middleX = (fromX + toX) / 2;
     int middleY = (fromY + toY) / 2;
     
-    // 查找中间位置的索引
     int middleIndex = findBlockAt(middleX, middleY);
     
     if (middleIndex == -1) return false;
-      // 🔥 关键：先保存移动记录，再执行移动
+    
     moveHistory.push(MoveRecord(selectedIndex, middleIndex, toIndex));
     
-    // 执行移动
-    blocks[selectedIndex].setPiece(false);  // 起始位置清空
-    blocks[middleIndex].setPiece(false);    // 中间棋子被吃掉
-    blocks[toIndex].setPiece(true);         // 目标位置放置棋子
+    blocks[selectedIndex].setPiece(false);
+    blocks[middleIndex].setPiece(false);
+    blocks[toIndex].setPiece(true);
     
     // 棋局已改变，清除所有目标标记和提示起始标记
     clearAllTargets();
     clearAllHintFrom();
-    
-    clearSelection();
+      clearSelection();
     return true;
 }
 
-// 新增：查询指定索引处是否有棋子
+// 查询指定索引处是否有棋子
 bool Chessboard::hasPieceAt(int index) const {
     if (index >= 0 && index < blocks.size()) {
         return blocks[index].containsPiece();
-    }
-    return false;
+    }    return false;
 }
 
-// 新增：生成所有可能的反向移动
+// 生成所有可能的反向移动
 std::vector<MoveRecord> Chessboard::getReverseMoves() const {
     std::vector<MoveRecord> revs;
     int dirs[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
@@ -251,37 +253,33 @@ std::vector<MoveRecord> Chessboard::getReverseMoves() const {
                 }
             }
         }
-    }
-    return revs;
+    }    return revs;
 }
 
-// 新增：应用反向移动
+// 应用反向移动
 void Chessboard::applyReverseMove(const MoveRecord& rec) {
     if (rec.fromIndex >= 0 && rec.fromIndex < blocks.size() &&
         rec.middleIndex >= 0 && rec.middleIndex < blocks.size() &&
         rec.toIndex >= 0 && rec.toIndex < blocks.size()) {
         blocks[rec.fromIndex].setPiece(true);
         blocks[rec.middleIndex].setPiece(true);
-        blocks[rec.toIndex].setPiece(false);
-    }
+        blocks[rec.toIndex].setPiece(false);    }
 }
 
-// 渲染整个棋盘的方法
+// 渲染整个棋盘
 void Chessboard::render() const {
     // 遍历 vector 中的所有格子
     for (const SingleBlock& block : blocks) {
-        renderSingleBlock(block);
-    }
+        renderSingleBlock(block);    }
 }
 
-// 只渲染指定索引的单个格子
+// 渲染指定索引的单个格子
 void Chessboard::renderBlockAt(int index) const {
     if (index >= 0 && index < blocks.size()) {
-        renderSingleBlock(blocks[index]);
-    }
+        renderSingleBlock(blocks[index]);    }
 }
 
-// 渲染单个格子的通用方法 - 蓝白配色主题
+// 渲染单个格子的详细样式
 void Chessboard::renderSingleBlock(const SingleBlock& block) const {
     int centerX = block.getX() + block.getWidth() / 2;
     int centerY = block.getY() + block.getHeight() / 2;
@@ -416,31 +414,30 @@ void Chessboard::renderSingleBlock(const SingleBlock& block) const {
             setlinecolor(RGB(120, 170, 240));
             setlinestyle(PS_SOLID, 1);
             circle(centerX, centerY, pieceRadius / 2);
-        }
-    }
+        }    }
 }
 
-// 胜负检测方法实现
+// 检查游戏是否胜利
 bool Chessboard::isGameWon() const {
     int pieceCount = 0;
     for (const SingleBlock& block : blocks) {
         if (block.containsPiece()) {
             pieceCount++;
         }
-    }
-    return pieceCount == 1; // 只剩一个棋子时胜利
+    }    return pieceCount == 1; // 只剩一个棋子时胜利
 }
 
+// 检查游戏是否失败
 bool Chessboard::isGameLost() const {
     // 检查是否有任何棋子可以移动
     for (int i = 0; i < blocks.size(); i++) {
         if (blocks[i].containsPiece() && canPieceMove(i)) {
             return false; // 找到可移动的棋子，游戏未失败
         }
-    }
-    return true; // 没有棋子可以移动，游戏失败
+    }    return true; // 没有棋子可以移动，游戏失败
 }
 
+// 检查指定棋子是否可以移动
 bool Chessboard::canPieceMove(int index) const {
     if (index < 0 || index >= blocks.size() || !blocks[index].containsPiece()) {
         return false;
@@ -471,11 +468,10 @@ bool Chessboard::canPieceMove(int index) const {
             }
         }
     }
-    
-    return false; // 没有可移动的方向
+      return false; // 没有可移动的方向
 }
 
-// 悔棋相关方法实现
+// 执行悔棋操作
 bool Chessboard::undoMove() {
     if (moveHistory.empty()) return false;
     
@@ -490,14 +486,15 @@ bool Chessboard::undoMove() {
     clearAllTargets();
     clearAllHintFrom();
     
-    clearSelection();  // 清除当前选择状态
-    return true;
+    clearSelection();  // 清除当前选择状态    return true;
 }
 
+// 检查是否可以悔棋
 bool Chessboard::canUndo() const {
     return !moveHistory.empty();
 }
 
+// 清空移动历史记录
 void Chessboard::clearHistory() {
     // 清空移动历史记录栈
     while (!moveHistory.empty()) {
@@ -505,7 +502,7 @@ void Chessboard::clearHistory() {
     }
 }
 
-// 全局图片渲染函数实现
+// 渲染棋盘背景图片
 void renderImage(const TCHAR* imageName, const TCHAR* displayName) {
     static bool imageLoaded = false;
     static IMAGE boardImage;
