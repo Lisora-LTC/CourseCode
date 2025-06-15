@@ -169,6 +169,54 @@ public:
     virtual ~StateNode() = default;
 };
 
+// 通用确认对话框基类
+class ConfirmBase : public StateNode {
+protected:
+    // 外观配置
+    COLORREF backgroundColor;    // 背景色
+    COLORREF dialogColor;       // 对话框背景色
+    COLORREF borderColor;       // 对话框边框色
+    COLORREF titleColor;        // 标题颜色
+    COLORREF contentColor;      // 正文颜色
+    COLORREF hintColor;         // 提示文字颜色
+    
+    // 文本内容
+    const TCHAR* titleText;     // 标题文字
+    const TCHAR* contentText;   // 正文内容
+    const TCHAR* hintText;      // 下方小字提示    // 按钮配置
+    COLORREF yesButtonColor;    // 确认按钮颜色
+    COLORREF noButtonColor;     // 取消按钮颜色
+    const TCHAR* yesButtonText; // 确认按钮文字
+    const TCHAR* noButtonText;  // 取消按钮文字
+    
+    // 按钮对象
+    Button yesButton;           // 确认按钮
+    Button noButton;            // 取消按钮
+    
+public:
+    // 构造函数
+    ConfirmBase(
+        const TCHAR* title, 
+        const TCHAR* content, 
+        const TCHAR* hint,
+        COLORREF bgColor = RGB(240, 245, 250),
+        COLORREF dlgColor = WHITE,
+        COLORREF borderClr = RGB(0, 84, 153),
+        COLORREF titleClr = RGB(0, 84, 153),
+        COLORREF contentClr = RGB(0, 84, 153),
+        COLORREF hintClr = RGB(128, 128, 128),
+        COLORREF yesClr = RGB(0, 120, 215),
+        COLORREF noClr = RGB(108, 117, 125),
+        const TCHAR* yesText = _T("是"),
+        const TCHAR* noText = _T("否")
+    );
+      // 通用渲染方法
+    virtual void render() override;
+    
+    // 子类需要实现自己的 handleEvent 方法
+    // virtual StateNode* handleEvent() override; // 每个子类自己实现
+};
+
 // 标题类，用于绘制大字号居中标题
 class Title {
 private:
@@ -217,57 +265,37 @@ public:
 };
 
 // 退出状态类
-class ExitState : public StateNode {
-private:
-    Button yesButton = Button(490, 390, 100, 40, _T("是"));   // 720p完全对称
-    Button noButton = Button(690, 390, 100, 40, _T("否"));  // 720p完全对称
-
+class ExitState : public ConfirmBase {
 public:
-    void render() override;
+    ExitState();
     StateNode* handleEvent() override;
 };
 
 // 继续游戏确认状态类
-class ContinueGameState : public StateNode {
-private:
-    Button yesButton = Button(490, 390, 100, 40, _T("是"));   // 720p完全对称
-    Button noButton = Button(690, 390, 100, 40, _T("否"));  // 720p完全对称
-
+class ContinueGameState : public ConfirmBase {
 public:
-    void render() override;
+    ContinueGameState();
     StateNode* handleEvent() override;
 };
 
 // 重新开始确认状态类
-class RestartConfirmState : public StateNode {
-private:
-    Button yesButton = Button(490, 390, 100, 40, _T("是"));   // 720p完全对称
-    Button noButton = Button(690, 390, 100, 40, _T("否"));  // 720p完全对称
-
+class RestartConfirmState : public ConfirmBase {
 public:
-    void render() override;
+    RestartConfirmState();
     StateNode* handleEvent() override;
 };
 
 // 游戏失败状态类
-class GameFailedState : public StateNode {
-private:
-    Button exitButton = Button(450, 420, 140, 45, _T("退出游戏"));    // 左侧按钮
-    Button continueButton = Button(690, 420, 140, 45, _T("继续游戏")); // 右侧按钮
-
+class GameFailedState : public ConfirmBase {
 public:
-    void render() override;
+    GameFailedState();
     StateNode* handleEvent() override;
 };
 
 // 游戏胜利状态类
-class GameWonState : public StateNode {
-private:
-    Button nextGameButton = Button(450, 420, 140, 45, _T("下一局"));    // 左侧按钮
-    Button exitButton = Button(690, 420, 140, 45, _T("返回菜单"));      // 右侧按钮
-
+class GameWonState : public ConfirmBase {
 public:
-    void render() override;
+    GameWonState();
     StateNode* handleEvent() override;
 };
 

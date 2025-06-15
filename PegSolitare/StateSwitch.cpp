@@ -108,12 +108,11 @@ void GameState::render() {
     if (!boardInitialized) {
         BoardInit("English");  // 默认English
         boardInitialized = true;
-    }
-      // 获取鼠标位置并更新悬停状态
-    POINT pt;
-    GetCursorPos(&pt);
-    ScreenToClient(GetForegroundWindow(), &pt);
-    board.updateHover(pt.x, pt.y);
+    }      // 获取鼠标位置（用于悬停状态和按钮绘制）
+    POINT mousePos;
+    GetCursorPos(&mousePos);
+    ScreenToClient(GetForegroundWindow(), &mousePos);
+    board.updateHover(mousePos.x, mousePos.y);
     
     cleardevice(); // 清屏
     // 顶部深蓝条 (720p适配)
@@ -123,28 +122,23 @@ void GameState::render() {
     // 状态文本（右上角）
     renderStatusText();
     
-    // 获取当前鼠标位置
-    POINT currentMousePos;
-    GetCursorPos(&currentMousePos);
-    ScreenToClient(GetForegroundWindow(), &currentMousePos);
-    
     // 返回按钮（带悬停效果）
-    returnButton.drawWithHover(currentMousePos.x, currentMousePos.y);    // 悔棋按钮 - 永远显示，但根据栈状态改变颜色和可按状态
+    returnButton.drawWithHover(mousePos.x, mousePos.y);    // 悔棋按钮 - 永远显示，但根据栈状态改变颜色和可按状态
     if (board.canUndo()) {
         // 有历史记录时显示蓝色，可按
         Button enabledUndoButton(1150, 350, 100, 40, _T("悔棋"), 
                                  RGB(0, 120, 215), RGB(0, 84, 153), WHITE, true);
-        enabledUndoButton.drawWithHover(currentMousePos.x, currentMousePos.y);
+        enabledUndoButton.drawWithHover(mousePos.x, mousePos.y);
     } else {
         // 没有历史记录时显示灰色，不可按
         Button disabledUndoButton(1150, 350, 100, 40, _T("悔棋"), 
                                   RGB(128, 128, 128), RGB(96, 96, 96), RGB(192, 192, 192), false);
-        disabledUndoButton.drawWithHover(currentMousePos.x, currentMousePos.y);
+        disabledUndoButton.drawWithHover(mousePos.x, mousePos.y);
     }
       // 重新开始按钮 - 永远显示为橙色
-    restartButton.drawWithHover(currentMousePos.x, currentMousePos.y);
+    restartButton.drawWithHover(mousePos.x, mousePos.y);
       // 提示按钮 - 显示为蓝色主题，暂时总是可按
-    hintButton.drawWithHover(currentMousePos.x, currentMousePos.y);
+    hintButton.drawWithHover(mousePos.x, mousePos.y);
       // 渲染图例
     renderLegend();
     // 渲染棋盘
@@ -277,9 +271,6 @@ void GameState::restartCurrentMode() {
         resetGame();
     }
 }
-
-// GameState 图例渲染方法实现
-// GameState 图例渲染方法实现
 
 // GameState的新方法实现
 void GameState::resetGame() {
@@ -509,19 +500,24 @@ void HowToPlayState::render() {
     outtextxy(150, startY + lineHeight * 4, _T("• 只能上下左右移动      • 选中棋子显示绿色"));
       outtextxy(100, startY + lineHeight * 6, _T("操作方法："));
     outtextxy(150, startY + lineHeight * 7, _T("• 点击棋子选中          • 点击橙红色位置移动"));
-    outtextxy(150, startY + lineHeight * 8, _T("• 支持悔棋功能          • 右侧按钮可撤销"));
-      // 右侧展示Lisora.png图片
-    IMAGE* lisora_img = new IMAGE;
-    loadimage(lisora_img, _T("Lisora.png"));
+    outtextxy(150, startY + lineHeight * 8, _T("• 支持悔棋功能          • 右侧按钮可撤销"));      // 右侧展示Lisora.png图片
+    static IMAGE lisora_img;
+    static bool imageLoaded = false;
+    
+    // 只在第一次加载图片
+    if (!imageLoaded) {
+        loadimage(&lisora_img, _T("Lisora.png"));
+        imageLoaded = true;
+    }
     
     // 计算图片位置 - 右侧居中
-    int imgWidth = lisora_img->getwidth();
-    int imgHeight = lisora_img->getheight();
+    int imgWidth = lisora_img.getwidth();
+    int imgHeight = lisora_img.getheight();
     int imgX = 900;  // 右侧位置
     int imgY = startY + lineHeight * 2;  // 从规则部分开始的高度
     
     // 绘制图片
-    putimage(imgX, imgY, lisora_img);
+    putimage(imgX, imgY, &lisora_img);
     
     // 在图片下方显示加粗的姓名
     LOGFONT nameFont;
@@ -534,13 +530,10 @@ void HowToPlayState::render() {
     settextstyle(&nameFont);
     
     settextcolor(RGB(0, 84, 153));
-    const TCHAR* name = _T("Lisora");
-    int nameWidth = textwidth(name);
-    int nameX = imgX + (imgWidth - nameWidth) / 2;  // 居中对齐图片
+    const TCHAR* name = _T("作者：Lisora");
+    int nameWidth = textwidth(name);    int nameX = imgX + (imgWidth - nameWidth) / 2;  // 居中对齐图片
     int nameY = imgY + imgHeight + 20;  // 图片下方20像素
     outtextxy(nameX, nameY, name);
-    
-    delete lisora_img;
 }
 
 StateNode* HowToPlayState::handleEvent() {
