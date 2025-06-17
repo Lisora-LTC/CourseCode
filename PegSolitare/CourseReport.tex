@@ -1,0 +1,238 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[UTF8]{ctex}
+
+% 删除CTeX章节定制，改用titlesec包
+\usepackage{titlesec}
+
+% 章节样式定义
+\titleformat{\section}[hang]
+  {\Large\bfseries\color{darkacademic}}
+  {\thesection.}{0.5em}{}
+\titlespacing*{\section}
+  {0pt}{1em}{0.5em}
+
+\titleformat{\subsection}[hang]
+  {\large\bfseries\color{academicblue}}
+  {\thesubsection}{0.5em}{}
+\titlespacing*{\subsection}
+  {0pt}{0.8em}{0.3em}
+
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{setspace}
+\usepackage{enumitem}  % 用于自定义目录编号格式
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{tcolorbox}
+\tcbuselibrary{most}
+\usepackage[colorlinks=true, linkcolor=darkblue, citecolor=darkblue, urlcolor=blue]{hyperref}
+\usepackage{bookmark}
+
+% 改善自动换行和断词
+\usepackage{microtype}  % 改善文字排版质量
+\usepackage{xurl}       % 允许在任意位置断开URL和代码
+\sloppy                 % 允许更宽松的行间距以避免溢出
+
+% 定义学术风格颜色
+\definecolor{academicblue}{RGB}{31,78,121}
+\definecolor{lightacademic}{RGB}{214,234,248}
+\definecolor{darkacademic}{RGB}{25,25,112}
+\definecolor{accentgray}{RGB}{105,105,105}
+\definecolor{lightgray}{RGB}{245,245,245}
+
+% 页面设置
+\geometry{left=3cm, right=3cm, top=2.5cm, bottom=2.5cm}
+% 调整页眉高度，避免 fancyhdr 警告
+\setlength{\headheight}{22.2pt}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{
+    \color{academicblue}\leaders\hrule height \headrulewidth\hfill
+}}
+\fancyhead[L]{\color{academicblue}\fontsize{9pt}{11pt}\selectfont 高级语言程序设计课程实验报告}
+\fancyhead[R]{\color{academicblue}\fontsize{9pt}{11pt}\selectfont 李天成 \quad 2451367}
+\fancyfoot[C]{\color{academicblue}\fontsize{10pt}{12pt}\selectfont -- \thepage\ --}
+
+% 用 enumitem 自定义目录编号与缩进
+\newlist{mytoc}{enumerate}{3}
+\setlist[mytoc,1]{label=\arabic*., leftmargin=1.5em, itemsep=0.3em}
+\setlist[mytoc,2]{label=\arabic{mytoci}.\arabic*., leftmargin=3em, itemsep=0.2em}
+\setlist[mytoc,3]{label=\arabic{mytoci}.\arabic{mytocii}.\arabic*., leftmargin=4.5em, itemsep=0.2em}
+
+\begin{document}
+
+% 封面页
+\begin{titlepage}
+    \thispagestyle{empty}
+    
+    \centering
+
+    % 学术机构信息
+    \vspace*{2cm}
+    
+    \begin{minipage}{\textwidth}
+        \centering
+        
+        % 标准学术格式标题
+        {\fontsize{16pt}{19pt}\selectfont\bfseries\color{darkacademic}
+        高级语言程序设计（基础）课程实验报告}
+        
+        \vspace{1.5cm}
+        
+        % 主标题
+        {\fontsize{20pt}{24pt}\selectfont\bfseries\color{academicblue}
+        孔明棋算法设计与实现}
+        
+        \vspace{0.5cm}
+        
+        {\fontsize{14pt}{17pt}\selectfont\color{accentgray}
+        Algorithm Design and Implementation of Peg Solitaire}
+        
+        \vspace{3cm}
+        
+        % 学术信息表格
+        \begin{tabular}{ll}
+            \multicolumn{2}{c}{\fontsize{14pt}{17pt}\selectfont\bfseries\color{darkacademic} 作者信息} \\[1cm]
+            
+            \makebox[4cm][l]{\bfseries\color{academicblue}姓名：} & 李天成 \\[0.8cm]
+            \makebox[4cm][l]{\bfseries\color{academicblue}学号：} & 2451367 \\[0.8cm]
+            \makebox[4cm][l]{\bfseries\color{academicblue}学院：} & 国豪书院 \\[0.8cm]
+            \makebox[4cm][l]{\bfseries\color{academicblue}专业：} & 计算机科学与技术(精英班) \\[0.8cm]
+        \end{tabular}
+        
+        \vspace{3cm}
+        
+        % 底部信息
+        \rule{0.6\textwidth}{0.5pt}
+        
+        \vspace{0.8cm}        {\fontsize{12pt}{14pt}\selectfont\color{accentgray}
+        完成日期：2025年6月17日}
+    \end{minipage}
+    
+\end{titlepage}
+
+% 目录页
+\newpage
+\setcounter{page}{1}
+\begin{center}
+    {\Large\bfseries\color{darkacademic} 目录}
+\end{center}
+\vspace{1cm}
+\begin{mytoc}
+    \item {\bfseries\color{academicblue} 设计思路与整体架构}
+    \begin{mytoc}
+        \item 页面组织关系
+        \item 页面渲染逻辑
+    \end{mytoc}
+    \item {\bfseries\color{academicblue} 实现细节}
+    \begin{mytoc}
+        \item 将页面存为类
+        \item 残局模式的实现
+        \item 搜索算法的实现
+        \begin{mytoc}
+            \item 子小标题一
+            \item 子小标题二
+        \end{mytoc}
+    \end{mytoc}
+    \item {\bfseries\color{academicblue} 在实验过程中遇到的问题及解决方法}
+    \item {\bfseries\color{academicblue} 心得体会}
+\end{mytoc}
+
+\section{设计思路与整体架构}
+
+本程序设计借鉴了React JS的函数式编程思想，将整个应用拆分为多个状态节点（StateNode）和组件类，每个节点或组件负责自身的渲染和事件处理，主循环通过状态切换和最小化重绘保证了界面更新的高效与清晰。
+
+\subsection{页面组织关系}
+应用入口定义于`Menu.cpp`中的`main`函数，初始化各状态节点的全局对象并启动主循环。页面以状态模式组织：
+\begin{itemize}
+  \item StateNode基类：定义纯虚方法`render()`和`handleEvent()`。  \item 各具体状态（MainMenuState、ChooseGameState、HowToPlayState、GameState等）继承自StateNode，分别负责菜单、游戏选择、游戏规则、游戏界面等功能。  \item 状态切换由每个节点的`handleEvent()`返回指向下一个StateNode的指针，辅以`StateSwitch.cpp`中的统一调度逻辑。
+\end{itemize}
+该组织方式使功能模块高度解耦，新增或修改页面只需新增或改写对应的StateNode子类，主框架不受影响。
+
+\subsection{页面渲染逻辑}
+本程序采用面向对象的UI组件设计，所有界面元素如按钮（Button）、标题（Title）、棋盘单元（SingleBlock）等均封装为独立类，负责自身的绘制和状态检测。主循环通过不断获取鼠标位置和点击状态，调用当前状态节点的\texttt{handleEvent()}处理交互事件（如按钮点击、棋子选中、提示生成等），并在事件处理后根据组件内部状态自动更新高亮、选中标识。
+
+当组件的状态或页面内容发生变化时，程序会设置\texttt{needsRender}标志，主循环检测到该标志后先调用\texttt{cleardevice()}清空画面，再调用当前状态节点的\texttt{render()}方法，依次调用各UI组件的\texttt{draw()}或\texttt{drawWithHover()}函数进行重绘，最后通过\texttt{FlushBatchDraw()}一并刷新到屏幕。静态页面（如主菜单、帮助界面、确认弹窗）在鼠标移动时即可触发重绘，以响应悬停效果；游戏主界面仅在鼠标移动幅度超过设定阈值、用户点击或游戏状态变化时才重绘，从而避免无谓的重复绘制，实现性能与体验的平衡。
+
+\subsection{架构优点}
+本项目结合状态机模式和函数式编程思想，提升了系统的模块化、可维护性和可测试性。
+
+\textbf{状态机设计的优势：}
+状态机将每个界面或逻辑节点封装为独立状态类，render()和handleEvent()职责单一，使页面切换逻辑简洁明了。以GameState为例，用户每次点击棋子即触发选择、移动、提示等状态更新，状态机机制可以灵活响应事件，无需修改主循环。模块化设计便于后期维护，新功能或界面只需添加/修改对应状态类，避免代码侵入。
+
+\textbf{函数式编程风格的优点：}
+借鉴React的函数式思想，组件渲染逻辑通过纯函数或无副作用的方法实现，减少了隐藏状态和全局变量的使用。UI组件（如Button、Title、SingleBlock）统一由其自身的render()方法绘制，数据和视图分离，便于组合和复用。同时，纯函数特性使单元测试更加容易，提升了代码可读性和可靠性。
+
+\section{实现细节}
+本章将详细介绍程序的核心功能实现，包括UI组件化设计、残局回溯逻辑和搜索算法等，以展示本项目在功能模块划分和逻辑实现方面的思路。
+
+\subsection{组件化UI设计}
+在UI层面，程序将所有界面元素抽象为组件（Component）实例，每个组件负责自身的渲染和事件响应，典型代表为\texttt{Button}和\texttt{Title}类。此设计借鉴Web前端的CSS样式体系和React的组件化思想：当需要修改按钮或标题样式时，只需在组件内部统一调整，页面中所有实例将即时生效，大大减少了硬编码量并提升了维护效率。
+\texttt{Button}对象内部维护位置、尺寸、文本、颜色和启用状态，调用其\texttt{drawWithHover()}方法结合\texttt{isHovered()}检测鼠标悬停，并动态调整边框颜色和线条粗细，实现高亮效果；\texttt{Title}组件则提供自定义字体和字号选项，并根据窗口宽度自动计算文本居中位置，确保在不同分辨率下标题始终水平居中。
+% 之后加一张指出页面中title，button的解释图片，以及加上代码块。
+\subsection{页面与弹窗类}
+所有页面都封装为独立的类，负责管理自身的UI组件和交互逻辑。\texttt{ConfirmBase}类提供了通用的弹窗框架，通过构造函数的参数灵活配置弹窗的标题、正文、提示文本、背景色、弹窗面板颜色、边框颜色以及确认/取消按钮的样式。
+具体弹窗状态如\texttt{ExitState}、\texttt{RestartConfirmState}等继承自\texttt{ConfirmBase}，它们在构造函数中只需传入不同的文案和配色，并在\texttt{handleEvent()}方法中实现确认或取消操作的跳转逻辑，即可快速生成完整的对话框界面。该设计将弹窗功能高度抽象化，实现了逻辑复用与样式配置的分离，提高了代码的可维护性和可扩展性。
+% 加一张页面的图片
+\subsection{渲染刷新逻辑优化}
+在主循环中，每次无条件重绘都会造成CPU占用率过高，为此引入以下两项优化策略：
+
+(1) 条件渲染：仅在检测到用户交互（如鼠标点击、键盘输入）或页面内容发生变化时，设置渲染标志并调用\texttt{render()}方法；如若连续迭代期间无任何事件或状态变化，则跳过重绘逻辑。
+
+(2) 帧率限制：在每次循环末尾调用\texttt{Sleep(16)}，将刷新频率控制在约60帧每秒，这既能保持界面流畅，又能避免CPU空转浪费。
+
+通过以上优化，程序在保证良好用户体验的同时，显著降低了渲染开销，适用于高性能交互式图形应用。
+
+
+
+\subsection{搜索算法的实现}
+本项目采用迭代加深A*（IDA*）算法作为搜索核心，结合位运算状态编码和跳跃记录结构，实现孔明棋的智能提示功能。
+
+\subsubsection{IDA* 算法原理与流程}
+IDA*算法融合深度优先搜索的空间效率与A*的启发式剪枝优势，主要流程如下：
+\begin{enumerate}
+  \item 首先计算起始状态 $s_0$ 的启发式估价 $h(s_0)$，通过调用 \texttt{heuristic(start)} 实现，具体为 \texttt{std::bitset<64>(s\_0).count() - 1}。例如英文棋盘初始 32 枚棋子时，$h(s_0)=31$。令 \texttt{bound} = $h(s_0)$，并将 \texttt{nextBound} 初始化为 \texttt{INT\_MAX}；
+  \item 在当前 \verb|bound| 下调用 \verb|dfs(s, g, bound)|，其中参数 $g$ 表示已执行移动步数，$h$ 为 \verb|heuristic(s)| 返回值。访问每个节点时，计算 $f = g + h$。若 $f > bound$，则执行 \verb|nextBound = std::min(nextBound, f)| 并回溯；否则继续扩展该节点；
+  \item 若在遍历中到达目标状态（仅剩一枚棋子），则搜索成功并返回路径；否则遍历结束后，将 \verb|bound| 更新为 \verb|nextBound|，进入下一轮迭代；
+  \item 重复上述过程，直至找到解或达到超时/步数限制，保证每轮仅扩展满足 $f \le bound$ 的路径，并逐步逼近最优解深度。
+\end{enumerate}
+
+\subsubsection{位运算状态编码与移动记录}
+为高效表示棋盘状态，程序使用 64 位无符号整数 (\texttt{uint64\_t}) 对棋盘进行编码：
+\begin{itemize}
+  \item 每个格子对应位图的一位，1 表示有棋子，0 表示空位；
+  \item 编码函数 \texttt{encode(st)} 遍历棋盘格子，依据布尔数组构造位图；
+  \item \texttt{MoveRecord} 结构体记录一次跳跃的起点、中点和终点索引：
+  \begin{verbatim}
+struct MoveRecord {
+    int fromIndex;    // 起点索引
+    int middleIndex;  // 被跳过棋子索引
+    int toIndex;      // 终点索引
+};
+  \end{verbatim}
+  \item 程序启动时，调用 \texttt{initMoves(n, coords)} 预生成所有跳跃组合，存入全局容器减少运行时开销。
+\end{itemize}
+
+\subsubsection{启发式函数与剪枝策略}
+函数 \texttt{heuristic(State s)} 返回当前棋子数减一：
+\begin{verbatim}
+static int heuristic(State s) {
+    return (int)std::bitset<64>(s).count() - 1;
+}
+\end{verbatim}
+该估价满足可承认性和一致性，可在常数时间内估计最少剩余步数。
+
+剪枝策略包括：
+\begin{itemize}
+  \item 阈值剪枝：当 $f=g+h>bound$ 时，立即回溯并更新 \texttt{nextBound}；
+  \item 超时控制：记录搜索开始时间，若递归超出预设毫秒数则提前终止；
+  \item 重复状态避免：依靠启发式函数减少无效分支，可在路径栈中检测循环。
+\end{itemize}
+
+\end{document}
