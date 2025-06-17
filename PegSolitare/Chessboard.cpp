@@ -481,12 +481,12 @@ bool Chessboard::undoMove() {
       // 逆向操作：恢复棋盘状态
     blocks[lastMove.fromIndex].setPiece(true);      // 恢复起始位置的棋子
     blocks[lastMove.middleIndex].setPiece(true);    // 恢复被吃掉的棋子
-    blocks[lastMove.toIndex].setPiece(false);       // 清空目标位置
-      // 棋局已改变，清除所有目标标记和提示起始标记
+    blocks[lastMove.toIndex].setPiece(false);       // 清空目标位置    // 棋局已改变，清除所有目标标记和提示起始标记
     clearAllTargets();
     clearAllHintFrom();
     
-    clearSelection();  // 清除当前选择状态    return true;
+    clearSelection();  // 清除当前选择状态
+    return true;
 }
 
 // 检查是否可以悔棋
