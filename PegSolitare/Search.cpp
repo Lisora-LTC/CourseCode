@@ -5,6 +5,15 @@
 #include <algorithm>
 #include <chrono>
 #include <limits>
+#include <vector>
+
+// 取消 Windows.h 中可能定义的 min/max 宏
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
 
 // 坐标类型的哈希和比较函数
 struct CoordHash {
