@@ -5,6 +5,7 @@
 #include <cmath>        // sin(), cos() 用于计算指针坐标
 #include <Windows.h>    // Sleep() 函数
 #include <algorithm>    // min, max 函数
+#include "AntiAlias.h"  // 抗锯齿算法头文件
 
 // 全局中心点和分辨率参数
 #define WIN_W 1280
@@ -12,156 +13,24 @@
 const int CENTER_X = WIN_W / 2;
 const int CENTER_Y = WIN_H / 2;
 
-// 抗锯齿工具函数
-namespace AntiAlias {
-    // 混合两个颜色，alpha范围0-1
-    COLORREF blendColor(COLORREF bg, COLORREF fg, float alpha) {
-        if (alpha <= 0) return bg;
-        if (alpha >= 1) return fg;
-        
-        int bgR = GetRValue(bg), bgG = GetGValue(bg), bgB = GetBValue(bg);
-        int fgR = GetRValue(fg), fgG = GetGValue(fg), fgB = GetBValue(fg);
-        
-        int r = (int)(bgR * (1 - alpha) + fgR * alpha);
-        int g = (int)(bgG * (1 - alpha) + fgG * alpha);
-        int b = (int)(bgB * (1 - alpha) + fgB * alpha);
-        
-        return RGB(r, g, b);
-    }
-    
-    // 获取指定位置的像素颜色（安全版本）
-    COLORREF getPixelSafe(int x, int y) {
-        if (x < 0 || y < 0 || x >= WIN_W || y >= WIN_H) {
-            return RGB(239, 246, 255); // 返回背景色
-        }
-        return getpixel(x, y);
-    }
-    
-    // 设置带透明度的像素
-    void setPixelAlpha(int x, int y, COLORREF color, float alpha) {
-        if (x < 0 || y < 0 || x >= WIN_W || y >= WIN_H) return;
-        
-        COLORREF bgColor = getPixelSafe(x, y);
-        COLORREF blended = blendColor(bgColor, color, alpha);
-        putpixel(x, y, blended);
-    }
-    
-    // Wu's 抗锯齿直线算法
-    void drawAntiAliasedLine(int x1, int y1, int x2, int y2, COLORREF color, int thickness = 1) {
-        // 处理粗线条：绘制多条平行线
-        if (thickness > 1) {
-            float dx = y2 - y1;
-            float dy = x1 - x2;
-            float len = sqrt(dx * dx + dy * dy);
-            if (len > 0) {
-                dx /= len;
-                dy /= len;
-            }
-            
-            for (int t = -(thickness / 2); t <= thickness / 2; t++) {
-                int offset_x1 = x1 + (int)(t * dx);
-                int offset_y1 = y1 + (int)(t * dy);
-                int offset_x2 = x2 + (int)(t * dx);
-                int offset_y2 = y2 + (int)(t * dy);
-                drawAntiAliasedLine(offset_x1, offset_y1, offset_x2, offset_y2, color, 1);
-            }
-            return;
-        }
-        
-        // Wu's 算法核心
-        bool steep = abs(y2 - y1) > abs(x2 - x1);
-        
-        if (steep) {
-            std::swap(x1, y1);
-            std::swap(x2, y2);
-        }
-        if (x1 > x2) {
-            std::swap(x1, x2);
-            std::swap(y1, y2);
-        }
-        
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float gradient = (dx == 0) ? 1.0f : dy / dx;
-        
-        // 处理端点
-        float xend = x1;
-        float yend = y1 + gradient * (xend - x1);
-        float xgap = 1 - (x1 + 0.5f - floor(x1 + 0.5f));
-        int xpxl1 = (int)xend;
-        int ypxl1 = (int)floor(yend);
-        
-        if (steep) {
-            setPixelAlpha(ypxl1, xpxl1, color, (1 - (yend - floor(yend))) * xgap);
-            setPixelAlpha(ypxl1 + 1, xpxl1, color, (yend - floor(yend)) * xgap);
-        } else {
-            setPixelAlpha(xpxl1, ypxl1, color, (1 - (yend - floor(yend))) * xgap);
-            setPixelAlpha(xpxl1, ypxl1 + 1, color, (yend - floor(yend)) * xgap);
-        }
-        
-        float intery = yend + gradient;
-        
-        xend = x2;
-        yend = y2 + gradient * (xend - x2);
-        xgap = x2 + 0.5f - floor(x2 + 0.5f);
-        int xpxl2 = (int)xend;
-        int ypxl2 = (int)floor(yend);
-        
-        if (steep) {
-            setPixelAlpha(ypxl2, xpxl2, color, (1 - (yend - floor(yend))) * xgap);
-            setPixelAlpha(ypxl2 + 1, xpxl2, color, (yend - floor(yend)) * xgap);
-        } else {
-            setPixelAlpha(xpxl2, ypxl2, color, (1 - (yend - floor(yend))) * xgap);
-            setPixelAlpha(xpxl2, ypxl2 + 1, color, (yend - floor(yend)) * xgap);
-        }
-        
-        // 主循环
-        for (int x = xpxl1 + 1; x < xpxl2; x++) {
-            if (steep) {
-                setPixelAlpha((int)floor(intery), x, color, 1 - (intery - floor(intery)));
-                setPixelAlpha((int)floor(intery) + 1, x, color, intery - floor(intery));
-            } else {
-                setPixelAlpha(x, (int)floor(intery), color, 1 - (intery - floor(intery)));
-                setPixelAlpha(x, (int)floor(intery) + 1, color, intery - floor(intery));
-            }
-            intery += gradient;
-        }
-    }
-    
-    // 抗锯齿圆圈绘制
-    void drawAntiAliasedCircle(int centerX, int centerY, int radius, COLORREF color, bool filled = true) {
-        for (int y = -radius - 1; y <= radius + 1; y++) {
-            for (int x = -radius - 1; x <= radius + 1; x++) {
-                float distance = sqrt(x * x + y * y);
-                float alpha = 0;
-                
-                if (filled) {
-                    // 实心圆
-                    if (distance <= radius - 0.5f) {
-                        alpha = 1.0f;
-                    } else if (distance < radius + 0.5f) {
-                        alpha = radius + 0.5f - distance;
-                    }
-                } else {
-                    // 空心圆（圆环）
-                    float innerRadius = radius - 0.5f;
-                    float outerRadius = radius + 0.5f;
-                    if (distance >= innerRadius && distance <= outerRadius) {
-                        if (distance <= radius) {
-                            alpha = distance - innerRadius;
-                        } else {
-                            alpha = outerRadius - distance;
-                        }
-                    }
-                }
-                
-                if (alpha > 0) {
-                    setPixelAlpha(centerX + x, centerY + y, color, alpha);
-                }
-            }
-        }
-    }
-}
+// ==================== 抗锯齿算法选择 ====================
+// 设置为 true 使用 2xSSAA，false 使用 Wu's 算法
+// 2xSSAA 提供更好的质量但性能开销更大
+#define USE_2X_SSAA false
+// =======================================================
+
+// 抗锯齿绘制辅助宏（自动根据USE_2X_SSAA选择算法）
+#if USE_2X_SSAA
+    #define AA_DrawLine(x1, y1, x2, y2, color, thickness) \
+        AntiAlias::SSAA::drawLine2xSSAA(x1, y1, x2, y2, color, thickness, WIN_W, WIN_H)
+    #define AA_DrawCircle(cx, cy, r, color, filled) \
+        AntiAlias::SSAA::drawCircle2xSSAA(cx, cy, r, color, filled, WIN_W, WIN_H)
+#else
+    #define AA_DrawLine(x1, y1, x2, y2, color, thickness) \
+        AntiAlias::drawAntiAliasedLine(x1, y1, x2, y2, color, thickness, WIN_W, WIN_H)
+    #define AA_DrawCircle(cx, cy, r, color, filled) \
+        AntiAlias::drawAntiAliasedCircle(cx, cy, r, color, filled, WIN_W, WIN_H)
+#endif
 
 // 时钟指针类
 class ClockHand {
@@ -206,16 +75,15 @@ public:
 
         // 先绘制白色描边增强对比度（使用抗锯齿）
         if (thickness >= 3) {
-            AntiAlias::drawAntiAliasedLine(centerX, centerY, endX, endY, 
-                                         RGB(255, 255, 255), thickness + 2);
+            AA_DrawLine(centerX, centerY, endX, endY, RGB(255, 255, 255), thickness + 2);
         }
 
         // 绘制主指针线条（使用抗锯齿）
-        AntiAlias::drawAntiAliasedLine(centerX, centerY, endX, endY, color, thickness);
+        AA_DrawLine(centerX, centerY, endX, endY, color, thickness);
         
         // 为指针添加抗锯齿圆润端点
         if (thickness > 1) {
-            AntiAlias::drawAntiAliasedCircle(endX, endY, 1, color, true);
+            AA_DrawCircle(endX, endY, 1, color, true);
         }
     }
 
@@ -267,8 +135,8 @@ void init() {
     fillcircle(CENTER_X, CENTER_Y, R_MAIN);
     
     // 使用抗锯齿绘制边框
-    AntiAlias::drawAntiAliasedCircle(CENTER_X, CENTER_Y, R_MAIN, RGB(148, 163, 184), false);
-    AntiAlias::drawAntiAliasedCircle(CENTER_X, CENTER_Y, R_MAIN - 10, RGB(226, 232, 240), false);
+    AA_DrawCircle(CENTER_X, CENTER_Y, R_MAIN, RGB(148, 163, 184), false);
+    AA_DrawCircle(CENTER_X, CENTER_Y, R_MAIN - 10, RGB(226, 232, 240), false);
     
     // 添加高光效果（左上角）
     setlinecolor(RGB(255, 255, 255));
@@ -290,7 +158,7 @@ void init() {
             // 主要刻度 (12, 3, 6, 9点位置) - 优雅的小圆点
             int dotX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle));
             int dotY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle));
-            AntiAlias::drawAntiAliasedCircle(dotX, dotY, 6, DARK_BLUE, true);
+            AA_DrawCircle(dotX, dotY, 6, DARK_BLUE, true);
             
             // 绘制数字 - 精致字体
             settextcolor(DARK_BLUE);
@@ -313,12 +181,12 @@ void init() {
             // 次要刻度 - 精致的小点
             int dotX = CENTER_X + (int)(R_MAIN * 0.88 * cos(angle));
             int dotY = CENTER_Y + (int)(R_MAIN * 0.88 * sin(angle));
-            AntiAlias::drawAntiAliasedCircle(dotX, dotY, 2, GRAY_BLUE, true);
+            AA_DrawCircle(dotX, dotY, 2, GRAY_BLUE, true);
         }
     }
     
     // 绘制中心点 - 抗锯齿版本
-    AntiAlias::drawAntiAliasedCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
+    AA_DrawCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
 }
 
 // 全局变量：记录上一次的时间，避免不必要的重绘
@@ -354,7 +222,7 @@ void drawHands(int hour, int minute, int second) {
             if (i % 3 == 0) {
                 int dotX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle));
                 int dotY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle));
-                AntiAlias::drawAntiAliasedCircle(dotX, dotY, 6, DARK_BLUE, true);
+                AA_DrawCircle(dotX, dotY, 6, DARK_BLUE, true);
                 
                 // 重绘数字
                 settextcolor(DARK_BLUE);
@@ -376,7 +244,7 @@ void drawHands(int hour, int minute, int second) {
             } else {
                 int dotX = CENTER_X + (int)(R_MAIN * 0.88 * cos(angle));
                 int dotY = CENTER_Y + (int)(R_MAIN * 0.88 * sin(angle));
-                AntiAlias::drawAntiAliasedCircle(dotX, dotY, 2, GRAY_BLUE, true);
+                AA_DrawCircle(dotX, dotY, 2, GRAY_BLUE, true);
             }
         }
     }
@@ -392,7 +260,7 @@ void drawHands(int hour, int minute, int second) {
     secondHand.render();
     
     // 绘制现代简洁的中心点（抗锯齿）
-    AntiAlias::drawAntiAliasedCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
+    AA_DrawCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
     
     // 更新时间记录
     lastHour = hour;
