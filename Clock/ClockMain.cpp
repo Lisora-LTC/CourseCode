@@ -14,12 +14,15 @@ const int CENTER_X = WIN_W / 2;
 const int CENTER_Y = WIN_H / 2;
 
 // ==================== 抗锯齿算法选择 ====================
-// 设置为 true 使用 2xSSAA，false 使用 Wu's 算法
+// 设置为 1 使用 2xSSAA，0 使用 Wu's 算法
 // 2xSSAA 提供更好的质量但性能开销更大
-#define USE_2X_SSAA false
+// 注意：2xSSAA在1280x960分辨率下会很慢，建议只对指针使用
+#define USE_2X_SSAA 1
+#define USE_2X_SSAA_FOR_STATIC 0  // 静态元素（刻度、边框）是否使用2xSSAA
 // =======================================================
 
 // 抗锯齿绘制辅助宏（自动根据USE_2X_SSAA选择算法）
+// 用于动态元素（指针）
 #if USE_2X_SSAA
     #define AA_DrawLine(x1, y1, x2, y2, color, thickness) \
         AntiAlias::SSAA::drawLine2xSSAA(x1, y1, x2, y2, color, thickness, WIN_W, WIN_H)
@@ -29,6 +32,19 @@ const int CENTER_Y = WIN_H / 2;
     #define AA_DrawLine(x1, y1, x2, y2, color, thickness) \
         AntiAlias::drawAntiAliasedLine(x1, y1, x2, y2, color, thickness, WIN_W, WIN_H)
     #define AA_DrawCircle(cx, cy, r, color, filled) \
+        AntiAlias::drawAntiAliasedCircle(cx, cy, r, color, filled, WIN_W, WIN_H)
+#endif
+
+// 用于静态元素（刻度、边框等）
+#if USE_2X_SSAA_FOR_STATIC
+    #define AA_DrawLine_Static(x1, y1, x2, y2, color, thickness) \
+        AntiAlias::SSAA::drawLine2xSSAA(x1, y1, x2, y2, color, thickness, WIN_W, WIN_H)
+    #define AA_DrawCircle_Static(cx, cy, r, color, filled) \
+        AntiAlias::SSAA::drawCircle2xSSAA(cx, cy, r, color, filled, WIN_W, WIN_H)
+#else
+    #define AA_DrawLine_Static(x1, y1, x2, y2, color, thickness) \
+        AntiAlias::drawAntiAliasedLine(x1, y1, x2, y2, color, thickness, WIN_W, WIN_H)
+    #define AA_DrawCircle_Static(cx, cy, r, color, filled) \
         AntiAlias::drawAntiAliasedCircle(cx, cy, r, color, filled, WIN_W, WIN_H)
 #endif
 
@@ -134,9 +150,9 @@ void init() {
     setfillcolor(PURE_WHITE);
     fillcircle(CENTER_X, CENTER_Y, R_MAIN);
     
-    // 使用抗锯齿绘制边框
-    AA_DrawCircle(CENTER_X, CENTER_Y, R_MAIN, RGB(148, 163, 184), false);
-    AA_DrawCircle(CENTER_X, CENTER_Y, R_MAIN - 10, RGB(226, 232, 240), false);
+    // 使用抗锯齿绘制边框（静态元素用Wu's算法）
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, R_MAIN, RGB(148, 163, 184), false);
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, R_MAIN - 10, RGB(226, 232, 240), false);
     
     // 添加高光效果（左上角）
     setlinecolor(RGB(255, 255, 255));
@@ -158,7 +174,7 @@ void init() {
             // 主要刻度 (12, 3, 6, 9点位置) - 优雅的小圆点
             int dotX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle));
             int dotY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle));
-            AA_DrawCircle(dotX, dotY, 6, DARK_BLUE, true);
+            AA_DrawCircle_Static(dotX, dotY, 6, DARK_BLUE, true);
             
             // 绘制数字 - 精致字体
             settextcolor(DARK_BLUE);
@@ -181,12 +197,12 @@ void init() {
             // 次要刻度 - 精致的小点
             int dotX = CENTER_X + (int)(R_MAIN * 0.88 * cos(angle));
             int dotY = CENTER_Y + (int)(R_MAIN * 0.88 * sin(angle));
-            AA_DrawCircle(dotX, dotY, 2, GRAY_BLUE, true);
+            AA_DrawCircle_Static(dotX, dotY, 2, GRAY_BLUE, true);
         }
     }
     
-    // 绘制中心点 - 抗锯齿版本
-    AA_DrawCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
+    // 绘制中心点 - 抗锯齿版本（静态）
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
 }
 
 // 全局变量：记录上一次的时间，避免不必要的重绘
@@ -222,7 +238,7 @@ void drawHands(int hour, int minute, int second) {
             if (i % 3 == 0) {
                 int dotX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle));
                 int dotY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle));
-                AA_DrawCircle(dotX, dotY, 6, DARK_BLUE, true);
+                AA_DrawCircle_Static(dotX, dotY, 6, DARK_BLUE, true);
                 
                 // 重绘数字
                 settextcolor(DARK_BLUE);
@@ -244,7 +260,7 @@ void drawHands(int hour, int minute, int second) {
             } else {
                 int dotX = CENTER_X + (int)(R_MAIN * 0.88 * cos(angle));
                 int dotY = CENTER_Y + (int)(R_MAIN * 0.88 * sin(angle));
-                AA_DrawCircle(dotX, dotY, 2, GRAY_BLUE, true);
+                AA_DrawCircle_Static(dotX, dotY, 2, GRAY_BLUE, true);
             }
         }
     }
@@ -254,12 +270,12 @@ void drawHands(int hour, int minute, int second) {
     minuteHand.setTimeAngle(minute, 60);
     secondHand.setTimeAngle(second, 60);
     
-    // 按层次渲染所有指针（从粗到细）
+    // 按层次渲染所有指针（从粗到细，使用2xSSAA）
     hourHand.render();
     minuteHand.render();
     secondHand.render();
     
-    // 绘制现代简洁的中心点（抗锯齿）
+    // 绘制现代简洁的中心点（动态，使用2xSSAA）
     AA_DrawCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
     
     // 更新时间记录

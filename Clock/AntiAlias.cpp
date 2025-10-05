@@ -3,6 +3,14 @@
 #include <cmath>
 #include <vector>
 
+// 防止Windows.h中的min/max宏干扰
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+
 namespace AntiAlias {
     // 混合两个颜色，alpha范围0-1
     COLORREF blendColor(COLORREF bg, COLORREF fg, float alpha) {
@@ -176,22 +184,43 @@ namespace AntiAlias {
         
         // 2xSSAA直线绘制
         void drawLine2xSSAA(int x1, int y1, int x2, int y2, COLORREF color, int thickness, int width, int height) {
-            // 创建2倍分辨率的临时缓冲区
-            int bufferWidth = width * 2;
-            int bufferHeight = height * 2;
+            // 计算需要处理的区域（加上边距）
+            int minX = (x1 < x2 ? x1 : x2) - thickness - 2;
+            int maxX = (x1 > x2 ? x1 : x2) + thickness + 2;
+            int minY = (y1 < y2 ? y1 : y2) - thickness - 2;
+            int maxY = (y1 > y2 ? y1 : y2) + thickness + 2;
+            
+            // 边界检查
+            minX = (0 > minX ? 0 : minX);
+            maxX = (width - 1 < maxX ? width - 1 : maxX);
+            minY = (0 > minY ? 0 : minY);
+            maxY = (height - 1 < maxY ? height - 1 : maxY);
+            
+            int regionWidth = maxX - minX + 1;
+            int regionHeight = maxY - minY + 1;
+            int bufferWidth = regionWidth * 2;
+            int bufferHeight = regionHeight * 2;
+            
+            // 创建局部2倍分辨率缓冲区
             std::vector<COLORREF> buffer(bufferWidth * bufferHeight);
             
-            // 填充背景色
-            COLORREF bgColor = RGB(239, 246, 255);
-            for (int i = 0; i < bufferWidth * bufferHeight; i++) {
-                buffer[i] = bgColor;
+            // 从屏幕读取背景并填充到2x缓冲区
+            for (int y = 0; y < regionHeight; y++) {
+                for (int x = 0; x < regionWidth; x++) {
+                    COLORREF bgColor = getpixel(minX + x, minY + y);
+                    // 填充到2x2区域
+                    buffer[(y * 2) * bufferWidth + (x * 2)] = bgColor;
+                    buffer[(y * 2) * bufferWidth + (x * 2 + 1)] = bgColor;
+                    buffer[(y * 2 + 1) * bufferWidth + (x * 2)] = bgColor;
+                    buffer[(y * 2 + 1) * bufferWidth + (x * 2 + 1)] = bgColor;
+                }
             }
             
-            // 在2倍分辨率下绘制直线（使用简单的Bresenham算法）
-            int x1_2x = x1 * 2;
-            int y1_2x = y1 * 2;
-            int x2_2x = x2 * 2;
-            int y2_2x = y2 * 2;
+            // 转换到局部坐标系统并放大2倍
+            int x1_2x = (x1 - minX) * 2;
+            int y1_2x = (y1 - minY) * 2;
+            int x2_2x = (x2 - minX) * 2;
+            int y2_2x = (y2 - minY) * 2;
             int thickness_2x = thickness * 2;
             
             // 使用Bresenham算法绘制线条
@@ -229,31 +258,53 @@ namespace AntiAlias {
                 }
             }
             
-            // 降采样到目标分辨率
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
+            // 降采样到目标分辨率（只处理受影响的区域）
+            for (int y = 0; y < regionHeight; y++) {
+                for (int x = 0; x < regionWidth; x++) {
                     COLORREF c = downsample2x2(buffer.data(), bufferWidth, x, y);
-                    putpixel(x, y, c);
+                    putpixel(minX + x, minY + y, c);
                 }
             }
         }
         
         // 2xSSAA圆圈绘制
         void drawCircle2xSSAA(int centerX, int centerY, int radius, COLORREF color, bool filled, int width, int height) {
-            // 创建2倍分辨率的临时缓冲区
-            int bufferWidth = width * 2;
-            int bufferHeight = height * 2;
+            // 计算需要处理的区域
+            int minX = centerX - radius - 2;
+            int maxX = centerX + radius + 2;
+            int minY = centerY - radius - 2;
+            int maxY = centerY + radius + 2;
+            
+            // 边界检查
+            minX = (0 > minX ? 0 : minX);
+            maxX = (width - 1 < maxX ? width - 1 : maxX);
+            minY = (0 > minY ? 0 : minY);
+            maxY = (height - 1 < maxY ? height - 1 : maxY);
+            
+            int regionWidth = maxX - minX + 1;
+            int regionHeight = maxY - minY + 1;
+            int bufferWidth = regionWidth * 2;
+            int bufferHeight = regionHeight * 2;
+            
+            // 创建局部2倍分辨率缓冲区
             std::vector<COLORREF> buffer(bufferWidth * bufferHeight);
             
-            // 填充背景色
-            COLORREF bgColor = RGB(239, 246, 255);
-            for (int i = 0; i < bufferWidth * bufferHeight; i++) {
-                buffer[i] = bgColor;
+            // 从屏幕读取背景并填充到2x缓冲区
+            for (int y = 0; y < regionHeight; y++) {
+                for (int x = 0; x < regionWidth; x++) {
+                    COLORREF bgColor = getpixel(minX + x, minY + y);
+                    buffer[(y * 2) * bufferWidth + (x * 2)] = bgColor;
+                    buffer[(y * 2) * bufferWidth + (x * 2 + 1)] = bgColor;
+                    buffer[(y * 2 + 1) * bufferWidth + (x * 2)] = bgColor;
+                    buffer[(y * 2 + 1) * bufferWidth + (x * 2 + 1)] = bgColor;
+                }
             }
             
-            // 在2倍分辨率下绘制圆圈
-            int centerX_2x = centerX * 2;
-            int centerY_2x = centerY * 2;
+            // 转换到局部坐标系统
+            int centerX_local = centerX - minX;
+            int centerY_local = centerY - minY;
+            int centerX_2x = centerX_local * 2;
+            int centerY_2x = centerY_local * 2;
             int radius_2x = radius * 2;
             
             for (int y = -radius_2x - 2; y <= radius_2x + 2; y++) {
@@ -277,19 +328,11 @@ namespace AntiAlias {
                 }
             }
             
-            // 降采样到目标分辨率
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
+            // 降采样到目标分辨率（只处理受影响的区域）
+            for (int y = 0; y < regionHeight; y++) {
+                for (int x = 0; x < regionWidth; x++) {
                     COLORREF c = downsample2x2(buffer.data(), bufferWidth, x, y);
-                    
-                    // 只在圆圈区域内进行混合
-                    int dx = x - centerX;
-                    int dy = y - centerY;
-                    float dist = sqrt(dx * dx + dy * dy);
-                    
-                    if ((filled && dist <= radius + 1) || (!filled && dist >= radius - 1 && dist <= radius + 1)) {
-                        putpixel(x, y, c);
-                    }
+                    putpixel(minX + x, minY + y, c);
                 }
             }
         }
