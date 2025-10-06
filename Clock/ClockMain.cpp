@@ -11,7 +11,7 @@
 #define WIN_W 1280
 #define WIN_H 960
 const int CENTER_X = WIN_W / 2;
-const int CENTER_Y = WIN_H / 2;
+const int CENTER_Y = 400;  // 向上移动，给下方文字留出空间（原来是 WIN_H / 2 = 480）
 
 // ==================== 抗锯齿算法选择 ====================
 // 设置为 1 使用 2xSSAA，0 使用 Wu's 算法
@@ -114,13 +114,45 @@ public:
     }
 };
 
-// 现代浅蓝配色方案 - 增强指针对比度
-#define DARK_BLUE    RGB(15, 35, 80)     // 更深的蓝色 - 时针，增强对比
-#define OCEAN_BLUE   RGB(30, 80, 180)    // 更深的海蓝 - 分针，增强对比  
-#define BRIGHT_BLUE  RGB(220, 38, 127)   // 改为粉红色 - 秒针，强烈对比
+// ========== 现代配色方案 - 简约风格 ==========
+// 当前：浅蓝主题
+#define DARK_BLUE    RGB(15, 35, 80)     // 深蓝色 - 时针
+#define OCEAN_BLUE   RGB(30, 80, 180)    // 海蓝色 - 分针
+#define BRIGHT_BLUE  RGB(220, 38, 127)   // 粉红色 - 秒针（亮色对比）
 #define SOFT_BLUE    RGB(239, 246, 255)  // 柔和蓝 - 背景色
-#define PURE_WHITE   RGB(255, 255, 255)  // 纯白色 - 高亮元素
+#define PURE_WHITE   RGB(255, 255, 255)  // 纯白色 - 表盘
 #define GRAY_BLUE    RGB(148, 163, 184)  // 灰蓝色 - 次要刻度
+#define ACCENT_GOLD  RGB(255, 193, 7)    // 金色点缀（可选）
+
+/* ========== 其他配色方案建议 ==========
+ * 
+ * 🎨 深色主题（高级感）：
+ * - 背景：RGB(18, 18, 18) 或 RGB(25, 28, 35)
+ * - 表盘：RGB(40, 44, 52)
+ * - 指针：RGB(255, 255, 255) / RGB(100, 200, 255) / RGB(255, 70, 70)
+ * 
+ * 🌿 绿色主题（清新）：
+ * - 背景：RGB(240, 248, 245)
+ * - 表盘：RGB(255, 255, 255)
+ * - 指针：RGB(46, 125, 50) / RGB(56, 142, 60) / RGB(255, 152, 0)
+ * 
+ * 🌸 粉色主题（柔和）：
+ * - 背景：RGB(255, 245, 250)
+ * - 表盘：RGB(255, 255, 255)
+ * - 指针：RGB(233, 30, 99) / RGB(236, 64, 122) / RGB(240, 98, 146)
+ * 
+ * 🌊 渐变主题（动感）：
+ * - 背景：从 RGB(106, 17, 203) 到 RGB(37, 117, 252)
+ * - 表盘：半透明 RGBA
+ * - 指针：RGB(255, 255, 255) 纯白
+ * 
+ * 💎 现代元素建议：
+ * - 微光效果：边框处添加细微高光
+ * - 阴影：表盘下方添加柔和阴影
+ * - 动画：秒针平滑过渡（需要更高刷新率）
+ * - 材质：玻璃拟态效果（毛玻璃背景）
+ * - 装饰：四个基点添加小图标或点缀
+ */
 
 // 全局指针对象 - 增强对比度版本
 ClockHand hourHand(CENTER_X, CENTER_Y, 150, 0, DARK_BLUE, 10);     // 时针
@@ -139,8 +171,8 @@ void init() {
     cleardevice();              // 清屏
     
     // 绘制背景渐变效果（用多个同心圆模拟）
-    for (int r = 400; r > 0; r -= 40) {
-        int alpha = 255 - (r * 50 / 400);  // 透明度渐变
+    for (int r = 360; r > 0; r -= 40) {
+        int alpha = 255 - (r * 50 / 360);  // 透明度渐变
         setfillcolor(RGB(239 + alpha/20, 246 + alpha/30, 255));
         setlinecolor(RGB(239 + alpha/20, 246 + alpha/30, 255));
         fillcircle(CENTER_X, CENTER_Y, r);
@@ -150,59 +182,98 @@ void init() {
     setfillcolor(PURE_WHITE);
     fillcircle(CENTER_X, CENTER_Y, R_MAIN);
     
-    // 使用抗锯齿绘制边框（静态元素用Wu's算法）
-    AA_DrawCircle_Static(CENTER_X, CENTER_Y, R_MAIN, RGB(148, 163, 184), false);
-    AA_DrawCircle_Static(CENTER_X, CENTER_Y, R_MAIN - 10, RGB(226, 232, 240), false);
+    // ========== 简洁深蓝色边框 ==========
+    // 使用传统方法绘制边框，避免抗锯齿干涉
+    setlinecolor(RGB(70, 100, 140));  // 深蓝色
+    setlinestyle(PS_SOLID, 3);  // 3像素宽的深蓝色边框
+    circle(CENTER_X, CENTER_Y, R_MAIN);
     
-    // 添加高光效果（左上角）
-    setlinecolor(RGB(255, 255, 255));
-    setlinestyle(PS_SOLID, 1);
-    for (int i = 0; i < 30; i++) {
-        double lightAngle = -2.356 + i * 0.05;  // 从左上开始的弧线
-    int x1 = CENTER_X + (int)(R_MAIN * 0.47 * cos(lightAngle));
-    int y1 = CENTER_Y + (int)(R_MAIN * 0.47 * sin(lightAngle));
-    int x2 = CENTER_X + (int)(R_MAIN * 0.48 * cos(lightAngle));
-    int y2 = CENTER_Y + (int)(R_MAIN * 0.48 * sin(lightAngle));
-        line(x1, y1, x2, y2);
-    }
-    
-    // 绘制小时刻度 - 现代极简风格
+    // 绘制小时刻度 - 带数字的完整版本（不再绘制小圆点）
     for (int i = 0; i < 12; i++) {
         double angle = i * 3.14159265359 / 6 - 3.14159265359 / 2;
         
+        // 绘制所有12个数字
+        settextcolor(DARK_BLUE);
+        setbkmode(TRANSPARENT);
+        
+        // 12, 3, 6, 9使用大字体，其他使用小字体
         if (i % 3 == 0) {
-            // 主要刻度 (12, 3, 6, 9点位置) - 优雅的小圆点
-            int dotX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle));
-            int dotY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle));
-            AA_DrawCircle_Static(dotX, dotY, 6, DARK_BLUE, true);
-            
-            // 绘制数字 - 精致字体
-            settextcolor(DARK_BLUE);
-            setbkmode(TRANSPARENT);
-            settextstyle(28, 0, _T("Segoe UI"));
-            int numX = CENTER_X + (int)(R_MAIN * 0.70 * cos(angle)) - 14;
-            int numY = CENTER_Y + (int)(R_MAIN * 0.70 * sin(angle)) - 14;
-            
-            wchar_t num[3];
-            int displayNum;
-            if (i == 0) displayNum = 12;        // 0*30° = 12点
-            else if (i == 3) displayNum = 3;    // 3*30° = 3点  
-            else if (i == 6) displayNum = 6;    // 6*30° = 6点
-            else if (i == 9) displayNum = 9;    // 9*30° = 9点
-            else displayNum = i;                // 其他位置（实际不会执行到这里）
-            
-            swprintf_s(num, L"%d", displayNum);
-            outtextxy(numX, numY, num);
+            settextstyle(32, 0, _T("Segoe UI"));
         } else {
-            // 次要刻度 - 精致的小点
-            int dotX = CENTER_X + (int)(R_MAIN * 0.88 * cos(angle));
-            int dotY = CENTER_Y + (int)(R_MAIN * 0.88 * sin(angle));
-            AA_DrawCircle_Static(dotX, dotY, 2, GRAY_BLUE, true);
+            settextstyle(24, 0, _T("Segoe UI"));
         }
+        
+        int displayNum = (i == 0) ? 12 : i;
+        wchar_t num[4];
+        swprintf_s(num, L"%d", displayNum);
+        
+        // 计算文字位置（需要根据数字宽度调整）- 移到更外侧避免被指针遮挡
+        int textWidth = (displayNum >= 10) ? 18 : 9;
+        int textHeight = 14;
+        int numX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle)) - textWidth;
+        int numY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle)) - textHeight;
+        
+        outtextxy(numX, numY, num);
     }
     
-    // 绘制中心点 - 抗锯齿版本（静态）
-    AA_DrawCircle_Static(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
+    // 绘制中心装饰圆（多层，立体感）
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, 12, RGB(100, 120, 150), false);
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, 10, DARK_BLUE, true);
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, 6, RGB(200, 210, 220), true);
+    AA_DrawCircle_Static(CENTER_X, CENTER_Y, 3, DARK_BLUE, true);
+}
+
+// 绘制数字时间显示
+void drawDigitalTime(int hour, int minute, int second) {
+    // 在屏幕下方显示数字时间
+    const int DIGITAL_Y = WIN_H - 180;  // 距离底部的位置，给更多空间
+    
+    // 清除之前的数字时间区域（扩大清除范围）
+    setfillcolor(SOFT_BLUE);
+    setlinecolor(SOFT_BLUE);
+    solidrectangle(0, DIGITAL_Y - 20, WIN_W, WIN_H);
+    
+    // ========== 绘制数字时间 ==========
+    settextcolor(DARK_BLUE);
+    setbkmode(TRANSPARENT);
+    settextstyle(72, 0, _T("Consolas"));  // 增大字号到72
+    
+    // 格式化时间字符串 HH:MM:SS
+    wchar_t timeStr[12];
+    swprintf_s(timeStr, L"%02d:%02d:%02d", hour, minute, second);
+    
+    // 精确计算文字宽度并居中
+    int timeWidth = textwidth(timeStr);
+    int timeX = CENTER_X - timeWidth / 2;
+    
+    outtextxy(timeX, DIGITAL_Y, timeStr);
+    
+    // ========== 绘制日期信息 ==========
+    settextstyle(28, 0, _T("Microsoft YaHei UI"));  // 使用微软雅黑，增大到28号
+    settextcolor(GRAY_BLUE);
+    
+    // 获取当前日期
+    time_t now = time(NULL);
+    struct tm t;
+    localtime_s(&t, &now);
+    
+    wchar_t dateStr[50];
+    const wchar_t* weekdays[] = {
+        L"\u661F\u671F\u65E5",  // 星期日
+        L"\u661F\u671F\u4E00",  // 星期一
+        L"\u661F\u671F\u4E8C",  // 星期二
+        L"\u661F\u671F\u4E09",  // 星期三
+        L"\u661F\u671F\u56DB",  // 星期四
+        L"\u661F\u671F\u4E94",  // 星期五
+        L"\u661F\u671F\u516D"   // 星期六
+    };
+    swprintf_s(dateStr, L"%04d\u5E74%02d\u6708%02d\u65E5  %s", 
+               t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, weekdays[t.tm_wday]);
+    
+    // 精确计算日期宽度并居中
+    int dateWidth = textwidth(dateStr);
+    int dateX = CENTER_X - dateWidth / 2;
+    outtextxy(dateX, DIGITAL_Y + 90, dateStr);  // 调整垂直间距
 }
 
 // 全局变量：记录上一次的时间，避免不必要的重绘
@@ -230,38 +301,31 @@ void drawHands(int hour, int minute, int second) {
         setlinecolor(PURE_WHITE);
         solidcircle(CENTER_X, CENTER_Y, 280);  // 清除指针区域，确保覆盖秒针全长(270+10)
         
-        // 重绘被覆盖的刻度点
+        // 重绘被覆盖的数字
         const int R_MAIN = 310;
         for (int i = 0; i < 12; i++) {
             double angle = i * 3.14159265359 / 6 - 3.14159265359 / 2;
             
+            // 重绘数字（不再绘制小圆点）
+            settextcolor(DARK_BLUE);
+            setbkmode(TRANSPARENT);
+            
             if (i % 3 == 0) {
-                int dotX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle));
-                int dotY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle));
-                AA_DrawCircle_Static(dotX, dotY, 6, DARK_BLUE, true);
-                
-                // 重绘数字
-                settextcolor(DARK_BLUE);
-                setbkmode(TRANSPARENT);
-                settextstyle(28, 0, _T("Segoe UI"));
-                int numX = CENTER_X + (int)(R_MAIN * 0.70 * cos(angle)) - 14;
-                int numY = CENTER_Y + (int)(R_MAIN * 0.70 * sin(angle)) - 14;
-                
-                wchar_t num[3];
-                int displayNum;
-                if (i == 0) displayNum = 12;
-                else if (i == 3) displayNum = 3;
-                else if (i == 6) displayNum = 6;
-                else if (i == 9) displayNum = 9;
-                else displayNum = i;
-                
-                swprintf_s(num, L"%d", displayNum);
-                outtextxy(numX, numY, num);
+                settextstyle(32, 0, _T("Segoe UI"));
             } else {
-                int dotX = CENTER_X + (int)(R_MAIN * 0.88 * cos(angle));
-                int dotY = CENTER_Y + (int)(R_MAIN * 0.88 * sin(angle));
-                AA_DrawCircle_Static(dotX, dotY, 2, GRAY_BLUE, true);
+                settextstyle(24, 0, _T("Segoe UI"));
             }
+            
+            int displayNum = (i == 0) ? 12 : i;
+            wchar_t num[4];
+            swprintf_s(num, L"%d", displayNum);
+            
+            int textWidth = (displayNum >= 10) ? 18 : 9;
+            int textHeight = 14;
+            int numX = CENTER_X + (int)(R_MAIN * 0.85 * cos(angle)) - textWidth;
+            int numY = CENTER_Y + (int)(R_MAIN * 0.85 * sin(angle)) - textHeight;
+            
+            outtextxy(numX, numY, num);
         }
     }
     
@@ -277,6 +341,9 @@ void drawHands(int hour, int minute, int second) {
     
     // 绘制现代简洁的中心点（动态，使用2xSSAA）
     AA_DrawCircle(CENTER_X, CENTER_Y, 8, DARK_BLUE, true);
+    
+    // 绘制数字时间显示
+    drawDigitalTime(hour, minute, second);
     
     // 更新时间记录
     lastHour = hour;
@@ -312,6 +379,7 @@ int main()
     setbkmode(TRANSPARENT);  // 设置透明背景模式，有助于抗锯齿
     
     init();			// 自定义图形初始化函数，用于绘制时钟界面
+    drawDigitalTime(t.tm_hour, t.tm_min, t.tm_sec);  // 初始化时显示数字时间
 
     // 改用消息循环，支持窗口关闭
     ExMessage msg;
