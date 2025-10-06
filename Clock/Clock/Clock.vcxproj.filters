@@ -21,9 +21,15 @@
     <ClCompile Include="AntiAlias.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="ThemeManager.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AntiAlias.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThemeManager.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
