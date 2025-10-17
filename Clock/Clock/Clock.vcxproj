@@ -132,7 +132,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AntiAlias.cpp" />
-    <ClCompile Include="ClockMain.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="ThemeManager.cpp" />
   </ItemGroup>
   <ItemGroup>
