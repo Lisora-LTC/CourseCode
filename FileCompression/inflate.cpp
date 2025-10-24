@@ -3,6 +3,7 @@
 #include "huffman.h"
 #include <string>
 #include <istream>
+#include <ostream>
 #include <cstdint>
 #include <vector>
 
@@ -136,11 +137,167 @@ namespace fc
         }
     }
 
-    bool inflateStream(std::istream & /*in*/, std::ostream & /*out*/, std::string *err)
+    bool inflateStream(std::istream &in, std::ostream &out, std::string *err)
     {
-        if (err)
-            *err = "inflateStream: not implemented (skeleton)";
-        return false;
+        // Read header
+        FileHeader hdr;
+        if (!readHeader(in, hdr, err))
+        {
+            return false;
+        }
+
+        // Rebuild frequency tables from header
+        std::vector<uint32_t> llFreqs(286, 0);
+        std::vector<uint32_t> distFreqs(30, 0);
+
+        for (const auto &p : hdr.llFreqs)
+        {
+            if (p.first < llFreqs.size())
+            {
+                llFreqs[p.first] = p.second;
+            }
+        }
+        for (const auto &p : hdr.distFreqs)
+        {
+            if (p.first < distFreqs.size())
+            {
+                distFreqs[p.first] = p.second;
+            }
+        }
+
+        // Build Huffman codecs
+        HuffmanCodec llCodec, distCodec;
+        if (!llCodec.build(llFreqs))
+        {
+            if (err)
+                *err = "inflateStream: failed to build LL Huffman tree";
+            return false;
+        }
+
+        // Check if we have any distance codes
+        bool hasMatches = false;
+        for (auto f : distFreqs)
+        {
+            if (f > 0)
+            {
+                hasMatches = true;
+                break;
+            }
+        }
+        if (hasMatches)
+        {
+            if (!distCodec.build(distFreqs))
+            {
+                if (err)
+                    *err = "inflateStream: failed to build Distance Huffman tree";
+                return false;
+            }
+        }
+
+        // Decode bit stream
+        BitReader br(in);
+        std::vector<uint8_t> output;
+        output.reserve(static_cast<size_t>(hdr.originalSize));
+
+        while (true)
+        {
+            uint16_t sym = 0;
+            if (!llCodec.decode(br, sym))
+            {
+                if (err)
+                    *err = "inflateStream: failed to decode LL symbol";
+                return false;
+            }
+
+            if (sym < 256)
+            {
+                // Literal
+                output.push_back(static_cast<uint8_t>(sym));
+            }
+            else if (sym == 256)
+            {
+                // EOB
+                break;
+            }
+            else if (sym >= 257)
+            {
+                // Match: decode length and distance
+                // Read length (9 bits)
+                uint32_t lenVal = 0;
+                if (!br.readBits(9, lenVal))
+                {
+                    if (err)
+                        *err = "inflateStream: failed to read length";
+                    return false;
+                }
+                uint16_t length = static_cast<uint16_t>(lenVal);
+
+                // Decode distance symbol (if matches exist)
+                if (hasMatches)
+                {
+                    uint16_t distSym = 0;
+                    if (!distCodec.decode(br, distSym))
+                    {
+                        if (err)
+                            *err = "inflateStream: failed to decode distance symbol";
+                        return false;
+                    }
+                }
+
+                // Read distance (15 bits)
+                uint32_t distVal = 0;
+                if (!br.readBits(15, distVal))
+                {
+                    if (err)
+                        *err = "inflateStream: failed to read distance";
+                    return false;
+                }
+                uint16_t distance = static_cast<uint16_t>(distVal);
+
+                // Perform LZ77 backreference copy (supports overlapping)
+                if (distance > output.size())
+                {
+                    if (err)
+                        *err = "inflateStream: distance exceeds output size";
+                    return false;
+                }
+
+                size_t start = output.size() - distance;
+                for (uint16_t i = 0; i < length; ++i)
+                {
+                    output.push_back(output[start + i]);
+                }
+            }
+            else
+            {
+                if (err)
+                    *err = "inflateStream: invalid symbol";
+                return false;
+            }
+        }
+
+        // Verify output size
+        if (output.size() != hdr.originalSize)
+        {
+            if (err)
+            {
+                *err = "inflateStream: output size mismatch (expected " +
+                       std::to_string(hdr.originalSize) + ", got " +
+                       std::to_string(output.size()) + ")";
+            }
+            return false;
+        }
+
+        // Write output
+        out.write(reinterpret_cast<const char *>(output.data()), output.size());
+        if (!out)
+        {
+            if (err)
+                *err = "inflateStream: failed to write output";
+            return false;
+        }
+
+        return true;
     }
 
 } // namespace fc
