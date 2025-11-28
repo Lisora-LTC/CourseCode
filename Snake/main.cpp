@@ -1,5 +1,6 @@
 #include "MenuScene.h"
 #include "GameManager.h"
+#include "Common.h"
 #include <iostream>
 
 // ============== 主函数 ==============

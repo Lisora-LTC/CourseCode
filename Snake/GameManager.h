@@ -183,4 +183,9 @@ private:
      * @brief 处理蛇死亡（进阶版/高级版）
      */
     void HandleSnakeDeath(Snake *snake);
+
+    /**
+     * @brief 获取模式字符串
+     */
+    std::string GetModeString(GameMode mode);
 };

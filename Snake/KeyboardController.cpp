@@ -1,7 +1,7 @@
 #include "KeyboardController.h"
 #include "Snake.h"
 #include "GameMap.h"
-#include "Utils.h"
+#include "Common.h"
 
 // ============== 构造与析构 ==============
 KeyboardController::KeyboardController() : playerIndex(0), lastDirection(NONE)
