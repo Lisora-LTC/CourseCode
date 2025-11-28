@@ -31,6 +31,14 @@ struct Point
     {
         return !(*this == other);
     }
+
+    // 用于std::map的排序（必须定义严格弱序）
+    bool operator<(const Point &other) const
+    {
+        if (x != other.x)
+            return x < other.x;
+        return y < other.y;
+    }
 };
 
 // ============== 枚举定义 ==============
