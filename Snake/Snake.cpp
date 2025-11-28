@@ -1,6 +1,5 @@
 #include "Snake.h"
 #include "GameMap.h"
-#include "Utils.h"
 
 // ============== 构造与析构 ==============
 Snake::Snake()
@@ -17,7 +16,33 @@ Snake::Snake(int snakeId, const Point &startPos, Direction startDir, COLORREF sn
     : currentDirection(startDir), nextDirection(startDir), controller(nullptr),
       id(snakeId), color(snakeColor), isAlive(true)
 {
-    // TODO: 根据起始位置和方向初始化蛇身
+    // 根据起始位置和方向初始化蛇身
+    body.clear();
+    body.push_back(startPos);
+
+    // 根据方向添加蛇身
+    for (int i = 1; i < INITIAL_SNAKE_LENGTH; i++)
+    {
+        Point newPoint = startPos;
+        switch (startDir)
+        {
+        case UP:
+            newPoint.y += i;
+            break;
+        case DOWN:
+            newPoint.y -= i;
+            break;
+        case LEFT:
+            newPoint.x += i;
+            break;
+        case RIGHT:
+            newPoint.x -= i;
+            break;
+        default:
+            break;
+        }
+        body.push_back(newPoint);
+    }
 }
 
 Snake::~Snake()
@@ -29,58 +54,168 @@ Snake::~Snake()
 // ============== 控制器管理 ==============
 void Snake::SetController(IController *ctrl)
 {
-    // TODO: 设置控制器
+    controller = ctrl;
+    if (controller)
+    {
+        controller->Init();
+    }
 }
 
 // ============== 核心逻辑 ==============
 void Snake::Update(GameMap &map)
 {
-    // TODO: 向控制器询问方向，然后移动
-    // 1. 调用 controller->MakeDecision(*this, map)
-    // 2. 根据决策结果更新方向
-    // 3. 调用 Move()
+    if (!isAlive || !controller)
+        return;
+
+    // 向控制器询问方向
+    Direction newDir = controller->MakeDecision(*this, map);
+
+    // 更新方向（检查是否有效）
+    if (newDir != NONE)
+    {
+        ChangeDirection(newDir);
+    }
+
+    // 应用缓冲的方向
+    currentDirection = nextDirection;
+
+    // 移动蛇
+    Move();
 }
 
 void Snake::Move()
 {
-    // TODO: 实现蛇的移动逻辑
-    // 1. 根据 currentDirection 计算新的头部位置
-    // 2. 在body前端插入新头部
-    // 3. 删除body末端
+    if (body.empty())
+        return;
+
+    // 计算新的头部位置
+    Point newHead = Utils::GetNextPoint(body.front(), currentDirection);
+
+    // 在前端插入新头部
+    body.insert(body.begin(), newHead);
+
+    // 删除尾部
+    body.pop_back();
 }
 
 void Snake::Grow()
 {
-    // TODO: 实现蛇的生长逻辑
-    // 不删除尾部，只添加头部
+    if (body.empty())
+        return;
+
+    // 计算新的头部位置
+    Point newHead = Utils::GetNextPoint(body.front(), currentDirection);
+
+    // 在前端插入新头部（不删除尾部）
+    body.insert(body.begin(), newHead);
 }
 
 void Snake::ChangeDirection(Direction newDir)
 {
-    // TODO: 实现方向改变逻辑
-    // 注意：不能直接180度转弯
+    // 不能直接180度转弯
+    if (Utils::IsOppositeDirection(currentDirection, newDir))
+    {
+        return;
+    }
+
+    // 不能是无效方向
+    if (newDir == NONE)
+    {
+        return;
+    }
+
+    // 缓冲新方向（下一帧应用）
+    nextDirection = newDir;
 }
 
 // ============== 碰撞检测 ==============
 bool Snake::CheckSelfCollision() const
 {
-    // TODO: 检测蛇头是否撞到蛇身
+    if (body.size() < 2)
+        return false;
+
+    const Point &head = body.front();
+
+    // 检查头部是否撞到身体（从第4节开始检查，前3节不可能撞到）
+    for (size_t i = 4; i < body.size(); i++)
+    {
+        if (Utils::IsCollision(head, body[i]))
+        {
+            return true;
+        }
+    }
+
     return false;
 }
 
 bool Snake::CheckCollisionWith(const Snake &other) const
 {
-    // TODO: 检测是否撞到另一条蛇
+    if (body.empty() || other.body.empty())
+        return false;
+
+    const Point &myHead = body.front();
+
+    // 检查我的头是否撞到对方的身体
+    for (const auto &segment : other.body)
+    {
+        if (Utils::IsCollision(myHead, segment))
+        {
+            return true;
+        }
+    }
+
     return false;
 }
 
 // ============== 工具方法 ==============
 void Snake::Reset(const Point &startPos, Direction startDir)
 {
-    // TODO: 重置蛇到初始状态
+    body.clear();
+    currentDirection = startDir;
+    nextDirection = startDir;
+    isAlive = true;
+
+    // 重新初始化蛇身
+    body.push_back(startPos);
+    for (int i = 1; i < INITIAL_SNAKE_LENGTH; i++)
+    {
+        Point newPoint = startPos;
+        switch (startDir)
+        {
+        case UP:
+            newPoint.y += i;
+            break;
+        case DOWN:
+            newPoint.y -= i;
+            break;
+        case LEFT:
+            newPoint.x += i;
+            break;
+        case RIGHT:
+            newPoint.x -= i;
+            break;
+        default:
+            break;
+        }
+        body.push_back(newPoint);
+    }
 }
 
 void Snake::ShrinkByHalf()
 {
-    // TODO: 减半蛇身长度（撞硬墙惩罚）
+    if (body.size() <= 2)
+    {
+        // 至少保留2节
+        while (body.size() > 2)
+        {
+            body.pop_back();
+        }
+        return;
+    }
+
+    size_t newSize = body.size() / 2;
+    if (newSize < 2)
+        newSize = 2;
+
+    body.resize(newSize);
 }

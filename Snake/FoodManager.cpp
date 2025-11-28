@@ -1,99 +1,240 @@
 #include "FoodManager.h"
-#include "Utils.h"
 
 // ============== 构造与析构 ==============
 FoodManager::FoodManager() : minFoodCount(1), maxFoodCount(5)
 {
-    // TODO: 初始化
+    Utils::InitRandom();
 }
 
 FoodManager::FoodManager(int minCount, int maxCount)
     : minFoodCount(minCount), maxFoodCount(maxCount)
 {
-    // TODO: 初始化
+    Utils::InitRandom();
 }
 
 FoodManager::~FoodManager()
 {
-    // TODO: 清理
+    foods.clear();
 }
 
 // ============== 食物生成 ==============
 void FoodManager::SpawnFood(const Snake &snake, const GameMap &map)
 {
-    // TODO: 生成随机数量的食物（1-5个）
+    // 生成随机数量的食物（1-5个）
+    int count = Utils::RandomInt(minFoodCount, maxFoodCount);
+    SpawnFoodCount(count, snake, map);
 }
 
 void FoodManager::SpawnFoodCount(int count, const Snake &snake, const GameMap &map)
 {
-    // TODO: 生成指定数量的食物
+    for (int i = 0; i < count; i++)
+    {
+        Point pos = FindEmptyPosition(snake, map);
+        if (pos.x >= 0 && pos.y >= 0)
+        { // 找到有效位置
+            Food food = GenerateRandomFood(pos);
+            foods.push_back(food);
+        }
+    }
 }
 
 void FoodManager::SpawnFoodAt(const Point &pos, FoodType type)
 {
-    // TODO: 在指定位置生成食物
+    int score = 10; // 默认分数
+    switch (type)
+    {
+    case NORMAL_FOOD:
+        score = 10;
+        break;
+    case BONUS_FOOD:
+        score = 20;
+        break;
+    case MAGIC_FRUIT:
+        score = 50;
+        break;
+    case POISON_FRUIT:
+        score = -100;
+        break;
+    case SPEED_UP:
+        score = 5;
+        break;
+    case SPEED_DOWN:
+        score = 5;
+        break;
+    }
+    foods.push_back(Food(pos, type, score));
 }
 
 Food FoodManager::GenerateRandomFood(const Point &pos)
 {
-    // TODO: 生成随机类型的食物
-    // 普通食物概率最高，特殊食物概率较低
-    return Food(pos, NORMAL_FOOD, 10);
+    // 生成随机类型的食物
+    // 普通食物70%，加分食物20%，特殊食物10%
+    int rand = Utils::RandomInt(1, 100);
+
+    FoodType type;
+    int score;
+
+    if (rand <= 70)
+    {
+        type = NORMAL_FOOD;
+        score = 10;
+    }
+    else if (rand <= 90)
+    {
+        type = BONUS_FOOD;
+        score = 20;
+    }
+    else
+    {
+        // 特殊食物随机
+        int special = Utils::RandomInt(1, 4);
+        switch (special)
+        {
+        case 1:
+            type = MAGIC_FRUIT;
+            score = 50;
+            break;
+        case 2:
+            type = POISON_FRUIT;
+            score = -100;
+            break;
+        case 3:
+            type = SPEED_UP;
+            score = 5;
+            break;
+        case 4:
+            type = SPEED_DOWN;
+            score = 5;
+            break;
+        default:
+            type = NORMAL_FOOD;
+            score = 10;
+            break;
+        }
+    }
+
+    return Food(pos, type, score);
 }
 
 // ============== 食物检测与消费 ==============
 bool FoodManager::HasFoodAt(const Point &p) const
 {
-    // TODO: 检测指定位置是否有食物
+    for (const auto &food : foods)
+    {
+        if (Utils::IsCollision(food.position, p))
+        {
+            return true;
+        }
+    }
     return false;
 }
 
 Food *FoodManager::GetFoodAt(const Point &p)
 {
-    // TODO: 获取指定位置的食物
+    for (auto &food : foods)
+    {
+        if (Utils::IsCollision(food.position, p))
+        {
+            return &food;
+        }
+    }
     return nullptr;
 }
 
 int FoodManager::ConsumeFood(const Point &p)
 {
-    // TODO: 吃掉食物，返回得分
+    for (auto it = foods.begin(); it != foods.end(); ++it)
+    {
+        if (Utils::IsCollision(it->position, p))
+        {
+            int score = it->scoreValue;
+            foods.erase(it);
+            return score;
+        }
+    }
     return 0;
 }
 
 void FoodManager::RemoveFoodAt(const Point &p)
 {
-    // TODO: 移除指定位置的食物
+    for (auto it = foods.begin(); it != foods.end(); ++it)
+    {
+        if (Utils::IsCollision(it->position, p))
+        {
+            foods.erase(it);
+            return;
+        }
+    }
 }
 
 // ============== 工具方法 ==============
 void FoodManager::ClearAllFoods()
 {
-    // TODO: 清空所有食物
     foods.clear();
 }
 
 bool FoodManager::NeedMoreFood() const
 {
-    // TODO: 判断是否需要补充食物
     return foods.empty();
 }
 
 void FoodManager::Update()
 {
-    // TODO: 更新食物状态（例如特殊食物的闪烁效果）
+    // 更新食物状态（例如特殊食物的闪烁效果）
+    // 目前不需要实现
 }
 
 // ============== 私有辅助方法 ==============
 Point FoodManager::FindEmptyPosition(const Snake &snake, const GameMap &map) const
 {
-    // TODO: 找到一个可用的空位置
-    // 循环尝试随机位置，直到找到空位
-    return Point();
+    // 找到一个可用的空位置
+    int maxAttempts = 100; // 最多尝试100次
+
+    for (int i = 0; i < maxAttempts; i++)
+    {
+        Point pos = Utils::RandomPoint();
+
+        if (!IsPositionOccupied(pos, snake, map))
+        {
+            return pos;
+        }
+    }
+
+    // 如果随机失败，遍历所有位置
+    for (int y = 1; y < MAP_HEIGHT - 1; y++)
+    {
+        for (int x = 1; x < MAP_WIDTH - 1; x++)
+        {
+            Point pos(x, y);
+            if (!IsPositionOccupied(pos, snake, map))
+            {
+                return pos;
+            }
+        }
+    }
+
+    return Point(-1, -1); // 没有可用位置
 }
 
 bool FoodManager::IsPositionOccupied(const Point &p, const Snake &snake, const GameMap &map) const
 {
-    // TODO: 判断位置是否被占用
-    // 检查是否在蛇身上、墙上或已有食物上
+    // 检查是否在墙上
+    if (map.IsWall(p))
+    {
+        return true;
+    }
+
+    // 检查是否在蛇身上
+    if (Utils::IsPointInList(p, snake.GetBody()))
+    {
+        return true;
+    }
+
+    // 检查是否已有食物
+    if (HasFoodAt(p))
+    {
+        return true;
+    }
+
     return false;
 }
