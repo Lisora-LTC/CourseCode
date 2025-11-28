@@ -1,7 +1,6 @@
 #include "AIController.h"
 #include "Snake.h"
 #include "GameMap.h"
-#include "Utils.h"
 #include <queue>
 #include <map>
 #include <algorithm>

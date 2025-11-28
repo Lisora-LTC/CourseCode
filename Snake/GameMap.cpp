@@ -1,79 +1,142 @@
 #include "GameMap.h"
-#include "Utils.h"
 
 // ============== 构造与析构 ==============
 GameMap::GameMap() : width(MAP_WIDTH), height(MAP_HEIGHT)
 {
-    // TODO: 初始化地图
+    // 初始化二维墙壁数组
+    walls.resize(height, std::vector<WallType>(width, NO_WALL));
+
+    // 初始化边界墙
+    InitBoundaryWalls();
 }
 
 GameMap::GameMap(int w, int h) : width(w), height(h)
 {
-    // TODO: 初始化指定大小的地图
-    // 初始化walls二维数组
+    // 初始化指定大小的地图
+    walls.resize(height, std::vector<WallType>(width, NO_WALL));
+
+    // 初始化边界墙
+    InitBoundaryWalls();
 }
 
 GameMap::~GameMap()
 {
-    // TODO: 清理资源
+    walls.clear();
+    obstacles.clear();
 }
 
 // ============== 墙壁管理 ==============
 void GameMap::InitBoundaryWalls()
 {
-    // TODO: 初始化边界墙
     // 遍历边界，设置为BOUNDARY类型
+    for (int x = 0; x < width; x++)
+    {
+        walls[0][x] = BOUNDARY;          // 上边界
+        walls[height - 1][x] = BOUNDARY; // 下边界
+        obstacles.insert(Point(x, 0));
+        obstacles.insert(Point(x, height - 1));
+    }
+
+    for (int y = 0; y < height; y++)
+    {
+        walls[y][0] = BOUNDARY;         // 左边界
+        walls[y][width - 1] = BOUNDARY; // 右边界
+        obstacles.insert(Point(0, y));
+        obstacles.insert(Point(width - 1, y));
+    }
 }
 
 void GameMap::AddWall(const Point &pos, WallType type)
 {
-    // TODO: 添加墙壁
+    if (!IsInBounds(pos))
+        return;
+
+    walls[pos.y][pos.x] = type;
+    if (type != NO_WALL)
+    {
+        obstacles.insert(pos);
+    }
 }
 
 void GameMap::RemoveWall(const Point &pos)
 {
-    // TODO: 移除墙壁
+    if (!IsInBounds(pos))
+        return;
+
+    walls[pos.y][pos.x] = NO_WALL;
+    obstacles.erase(pos);
 }
 
 void GameMap::ClearWalls()
 {
-    // TODO: 清除所有墙壁（除边界外）
+    // 清除所有非边界墙壁
+    for (int y = 1; y < height - 1; y++)
+    {
+        for (int x = 1; x < width - 1; x++)
+        {
+            if (walls[y][x] != NO_WALL)
+            {
+                walls[y][x] = NO_WALL;
+                obstacles.erase(Point(x, y));
+            }
+        }
+    }
 }
 
 // ============== 查询方法 ==============
 bool GameMap::IsWall(const Point &p) const
 {
-    // TODO: 判断是否是墙
-    return false;
+    if (!IsInBounds(p))
+        return true;
+    return walls[p.y][p.x] != NO_WALL;
 }
 
 WallType GameMap::GetWallType(const Point &p) const
 {
-    // TODO: 获取墙壁类型
-    return NO_WALL;
+    if (!IsInBounds(p))
+        return BOUNDARY;
+    return walls[p.y][p.x];
 }
 
 bool GameMap::IsInBounds(const Point &p) const
 {
-    // TODO: 判断是否在边界内
     return p.x >= 0 && p.x < width && p.y >= 0 && p.y < height;
 }
 
 bool GameMap::IsWalkable(const Point &p) const
 {
-    // TODO: 判断位置是否可通行（不是墙且在边界内）
-    return false;
+    return IsInBounds(p) && !IsWall(p);
 }
 
 // ============== 特殊功能 ==============
 void GameMap::ConvertSnakeToWalls(const std::vector<Point> &snakeBody)
 {
-    // TODO: 将蛇尸转换为墙壁（进阶版功能）
+    // 将蛇尸转换为软墙（进阶版功能）
+    for (const auto &segment : snakeBody)
+    {
+        if (IsInBounds(segment) && !IsWall(segment))
+        {
+            AddWall(segment, SOFT_WALL);
+        }
+    }
 }
 
 std::vector<Point> GameMap::GetEmptyPositions() const
 {
-    // TODO: 获取所有空闲位置
     std::vector<Point> emptyPositions;
+
+    // 遍历地图，找出所有空闲位置
+    for (int y = 1; y < height - 1; y++)
+    {
+        for (int x = 1; x < width - 1; x++)
+        {
+            Point p(x, y);
+            if (!IsWall(p))
+            {
+                emptyPositions.push_back(p);
+            }
+        }
+    }
+
     return emptyPositions;
 }

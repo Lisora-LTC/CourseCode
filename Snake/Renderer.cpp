@@ -4,7 +4,6 @@
 // ============== 构造与析构 ==============
 Renderer::Renderer() : windowWidth(0), windowHeight(0), initialized(false)
 {
-    // TODO: 初始化
 }
 
 Renderer::~Renderer()
@@ -15,10 +14,10 @@ Renderer::~Renderer()
 // ============== 初始化与清理 ==============
 bool Renderer::Init(int width, int height, const wchar_t *title)
 {
-    // TODO: 初始化EasyX图形窗口
-    // initgraph(width, height);
-    // setbkcolor(BLACK);
-    // cleardevice();
+    initgraph(width, height);
+    SetWindowText(GetHWnd(), title);
+    setbkcolor(BLACK);
+    cleardevice();
 
     windowWidth = width;
     windowHeight = height;
@@ -28,30 +27,40 @@ bool Renderer::Init(int width, int height, const wchar_t *title)
 
 void Renderer::Close()
 {
-    // TODO: 关闭图形窗口
-    // closegraph();
+    if (initialized)
+    {
+        closegraph();
+    }
     initialized = false;
 }
 
 void Renderer::Clear(COLORREF bgColor)
 {
-    // TODO: 清空屏幕
-    // setbkcolor(bgColor);
-    // cleardevice();
+    setbkcolor(bgColor);
+    cleardevice();
 }
 
 // ============== 游戏元素绘制 ==============
 void Renderer::DrawSnake(const Snake &snake)
 {
-    // TODO: 绘制蛇
-    // 1. 获取蛇的body
-    // 2. 遍历每个点，绘制方块
-    // 3. 蛇头可以用不同颜色区分
+    const auto &body = snake.GetBody();
+    if (body.empty())
+        return;
+
+    // 绘制蛇头（不同颜色）
+    COLORREF headColor = snake.GetPlayerID() == 0 ? RGB(0, 255, 0) : RGB(0, 200, 255);
+    DrawBlock(body[0].x, body[0].y, headColor, true);
+
+    // 绘制蛇身
+    COLORREF bodyColor = snake.GetPlayerID() == 0 ? RGB(0, 200, 0) : RGB(0, 150, 200);
+    for (size_t i = 1; i < body.size(); ++i)
+    {
+        DrawBlock(body[i].x, body[i].y, bodyColor, true);
+    }
 }
 
 void Renderer::DrawSnakes(const std::vector<Snake *> &snakes)
 {
-    // TODO: 绘制多条蛇
     for (auto snake : snakes)
     {
         if (snake && snake->IsAlive())
@@ -63,21 +72,44 @@ void Renderer::DrawSnakes(const std::vector<Snake *> &snakes)
 
 void Renderer::DrawMap(const GameMap &map)
 {
-    // TODO: 绘制地图墙壁
     // 遍历地图，绘制所有墙壁
+    for (int y = 0; y < MAP_HEIGHT; ++y)
+    {
+        for (int x = 0; x < MAP_WIDTH; ++x)
+        {
+            WallType wallType = map.GetWallType(Point(x, y));
+            if (wallType != EMPTY)
+            {
+                COLORREF color = GetWallColor(wallType);
+                DrawBlock(x, y, color, true);
+            }
+        }
+    }
 }
 
 void Renderer::DrawFood(const Food &food)
 {
-    // TODO: 绘制单个食物
-    // 根据食物类型选择不同颜色
-    // COLORREF color = GetFoodColor(food.type);
-    // DrawBlock(food.position.x, food.position.y, color);
+    COLORREF color = GetFoodColor(food.type);
+    DrawBlock(food.position.x, food.position.y, color, true);
+
+    // 为特殊食物添加标记（绘制内部小方块）
+    if (food.type != NORMAL_FOOD && food.type != BONUS_FOOD)
+    {
+        int pixelX = GridToPixelX(food.position.x);
+        int pixelY = GridToPixelY(food.position.y);
+        int margin = BLOCK_SIZE / 4;
+
+        setfillcolor(WHITE);
+        solidrectangle(
+            pixelX + margin,
+            pixelY + margin,
+            pixelX + BLOCK_SIZE - margin - 1,
+            pixelY + BLOCK_SIZE - margin - 1);
+    }
 }
 
 void Renderer::DrawFoods(const FoodManager &foodMgr)
 {
-    // TODO: 绘制所有食物
     const auto &foods = foodMgr.GetAllFoods();
     for (const auto &food : foods)
     {
@@ -88,68 +120,106 @@ void Renderer::DrawFoods(const FoodManager &foodMgr)
 // ============== UI绘制 ==============
 void Renderer::DrawUI(int score, int highScore, int length, int lives, int time)
 {
-    // TODO: 绘制UI信息
-    // 在屏幕右侧或上方显示信息
-    // 示例：
-    // wchar_t buffer[100];
-    // swprintf_s(buffer, L"得分: %d", score);
-    // outtextxy(10, 10, buffer);
+    // 设置文本样式
+    settextstyle(20, 0, L"微软雅黑");
+    settextcolor(WHITE);
+
+    // 在游戏区域右侧绘制UI信息
+    int uiX = MAP_WIDTH * BLOCK_SIZE + 20;
+    int startY = 50;
+    int lineHeight = 40;
+
+    wchar_t buffer[100];
+
+    // 得分
+    swprintf_s(buffer, L"得分: %d", score);
+    outtextxy(uiX, startY, buffer);
+
+    // 历史最高分
+    swprintf_s(buffer, L"最高分: %d", highScore);
+    outtextxy(uiX, startY + lineHeight, buffer);
+
+    // 蛇长度
+    swprintf_s(buffer, L"长度: %d", length);
+    outtextxy(uiX, startY + lineHeight * 2, buffer);
+
+    // 剩余生命
+    swprintf_s(buffer, L"生命: %d", lives);
+    outtextxy(uiX, startY + lineHeight * 3, buffer);
+
+    // 游戏时间
+    int minutes = time / 60;
+    int seconds = time % 60;
+    swprintf_s(buffer, L"时间: %02d:%02d", minutes, seconds);
+    outtextxy(uiX, startY + lineHeight * 4, buffer);
+
+    // 绘制分隔线
+    setlinecolor(RGB(100, 100, 100));
+    line(MAP_WIDTH * BLOCK_SIZE + 10, 0, MAP_WIDTH * BLOCK_SIZE + 10, windowHeight);
 }
 
 void Renderer::DrawPauseScreen()
 {
-    // TODO: 绘制暂停界面
-    DrawTextCentered(L"游戏暂停", windowHeight / 2, 48, YELLOW);
-    DrawTextCentered(L"按任意键继续", windowHeight / 2 + 60, 24, WHITE);
+    // 半透明背景
+    setfillcolor(RGB(0, 0, 0));
+    setfillstyle(BS_SOLID);
+    solidrectangle(0, 0, windowWidth, windowHeight);
+
+    DrawTextCentered(L"游戏暂停", windowHeight / 2 - 30, 48, YELLOW);
+    DrawTextCentered(L"按空格键继续", windowHeight / 2 + 30, 24, WHITE);
 }
 
 void Renderer::DrawGameOverScreen(int finalScore, bool isHighScore)
 {
-    // TODO: 绘制游戏结束界面
-    DrawTextCentered(L"游戏结束", windowHeight / 2 - 60, 48, RED);
+    // 半透明背景
+    setfillcolor(RGB(50, 0, 0));
+    solidrectangle(0, 0, windowWidth, windowHeight);
+
+    DrawTextCentered(L"游戏结束", windowHeight / 2 - 80, 48, RED);
 
     wchar_t scoreText[100];
     swprintf_s(scoreText, L"最终得分: %d", finalScore);
-    DrawTextCentered(scoreText, windowHeight / 2, 32, WHITE);
+    DrawTextCentered(scoreText, windowHeight / 2 - 20, 32, WHITE);
 
     if (isHighScore)
     {
-        DrawTextCentered(L"新纪录！", windowHeight / 2 + 50, 28, YELLOW);
+        DrawTextCentered(L"★ 新纪录！★", windowHeight / 2 + 30, 28, YELLOW);
     }
+
+    DrawTextCentered(L"按任意键返回菜单", windowHeight / 2 + 80, 20, RGB(150, 150, 150));
 }
 
 // ============== 工具方法 ==============
 void Renderer::BeginBatch()
 {
-    // TODO: 开始批量绘图
-    // BeginBatchDraw();
+    BeginBatchDraw();
 }
 
 void Renderer::EndBatch()
 {
-    // TODO: 结束批量绘图
-    // EndBatchDraw();
+    EndBatchDraw();
 }
 
 void Renderer::DrawTextCentered(const wchar_t *text, int y, int fontSize, COLORREF color)
 {
-    // TODO: 绘制居中文本
-    // settextstyle(fontSize, 0, L"微软雅黑");
-    // settextcolor(color);
-    // int textWidth = textwidth(text);
-    // outtextxy((windowWidth - textWidth) / 2, y, text);
+    settextstyle(fontSize, 0, L"微软雅黑");
+    settextcolor(color);
+    int textWidth = textwidth(text);
+    outtextxy((windowWidth - textWidth) / 2, y, text);
 }
 
 void Renderer::DrawRect(int x, int y, int width, int height, COLORREF color, bool filled)
 {
-    // TODO: 绘制矩形
-    // setlinecolor(color);
-    // if (filled) {
-    //     setfillcolor(color);
-    //     fillrectangle(x, y, x + width, y + height);
-    // } else {
-    //     rectangle(x, y, x + width, y + height);
-    // }
+    setlinecolor(color);
+    if (filled)
+    {
+        setfillcolor(color);
+        solidrectangle(x, y, x + width, y + height);
+    }
+    else
+    {
+        rectangle(x, y, x + width, y + height);
+    }
 }
 
 // ============== 私有方法 ==============
@@ -165,7 +235,6 @@ int Renderer::GridToPixelY(int gridY) const
 
 COLORREF Renderer::GetFoodColor(FoodType type) const
 {
-    // TODO: 根据食物类型返回颜色
     switch (type)
     {
     case NORMAL_FOOD:
@@ -187,7 +256,6 @@ COLORREF Renderer::GetFoodColor(FoodType type) const
 
 COLORREF Renderer::GetWallColor(WallType type) const
 {
-    // TODO: 根据墙壁类型返回颜色
     switch (type)
     {
     case HARD_WALL:
@@ -203,15 +271,21 @@ COLORREF Renderer::GetWallColor(WallType type) const
 
 void Renderer::DrawBlock(int gridX, int gridY, COLORREF color, bool filled)
 {
-    // TODO: 绘制单个格子
     int pixelX = GridToPixelX(gridX);
     int pixelY = GridToPixelY(gridY);
 
-    // setfillcolor(color);
-    // setlinecolor(color);
-    // if (filled) {
-    //     fillrectangle(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1);
-    // } else {
-    //     rectangle(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1);
-    // }
+    if (filled)
+    {
+        setfillcolor(color);
+        solidrectangle(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1);
+
+        // 绘制边框以区分不同格子
+        setlinecolor(RGB(30, 30, 30));
+        rectangle(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1);
+    }
+    else
+    {
+        setlinecolor(color);
+        rectangle(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1);
+    }
 }
