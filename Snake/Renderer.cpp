@@ -48,11 +48,11 @@ void Renderer::DrawSnake(const Snake &snake)
         return;
 
     // 绘制蛇头（不同颜色）
-    COLORREF headColor = snake.GetPlayerID() == 0 ? RGB(0, 255, 0) : RGB(0, 200, 255);
+    COLORREF headColor = snake.GetId() == 0 ? RGB(0, 255, 0) : RGB(0, 200, 255);
     DrawBlock(body[0].x, body[0].y, headColor, true);
 
     // 绘制蛇身
-    COLORREF bodyColor = snake.GetPlayerID() == 0 ? RGB(0, 200, 0) : RGB(0, 150, 200);
+    COLORREF bodyColor = snake.GetId() == 0 ? RGB(0, 200, 0) : RGB(0, 150, 200);
     for (size_t i = 1; i < body.size(); ++i)
     {
         DrawBlock(body[i].x, body[i].y, bodyColor, true);
@@ -78,7 +78,7 @@ void Renderer::DrawMap(const GameMap &map)
         for (int x = 0; x < MAP_WIDTH; ++x)
         {
             WallType wallType = map.GetWallType(Point(x, y));
-            if (wallType != EMPTY)
+            if (wallType != NO_WALL)
             {
                 COLORREF color = GetWallColor(wallType);
                 DrawBlock(x, y, color, true);

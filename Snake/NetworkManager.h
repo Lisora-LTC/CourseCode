@@ -1,8 +1,13 @@
 #pragma once
-#include "Client.h"
 #include "Common.h"
 #include <queue>
 #include <string>
+
+// 前向声明
+namespace NetworkHelper
+{
+    class ClientHelper;
+}
 
 // ============== 游戏数据包结构 ==============
 // 定义客户端与服务器之间的通信协议
@@ -22,7 +27,7 @@ struct GamePacket
 class NetworkManager
 {
 private:
-    ClientHelper client;                 // 助教提供的网络客户端
+    NetworkHelper::ClientHelper *client; // 助教提供的网络客户端
     std::queue<GamePacket> receiveQueue; // 接收队列
     std::queue<GamePacket> sendQueue;    // 发送队列
 

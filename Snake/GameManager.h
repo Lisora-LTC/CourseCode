@@ -1,10 +1,10 @@
 #pragma once
 #include "Common.h"
+#include "NetworkManager.h"
 #include "Snake.h"
 #include "GameMap.h"
 #include "FoodManager.h"
 #include "Renderer.h"
-#include "NetworkManager.h"
 #include <vector>
 #include <string>
 #include <fstream>

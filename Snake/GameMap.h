@@ -76,11 +76,3 @@ public:
      */
     std::vector<Point> GetEmptyPositions() const;
 };
-
-// 比较运算符重载（用于 set 存储 Point）
-inline bool operator<(const Point &a, const Point &b)
-{
-    if (a.x != b.x)
-        return a.x < b.x;
-    return a.y < b.y;
-}

@@ -1,9 +1,10 @@
 #include "NetworkManager.h"
+#include "Client.h"
 #include <cstring>
 
 // ============== 构造与析构 ==============
 NetworkManager::NetworkManager()
-    : connected(false), myPlayerId(-1), frameCounter(0), serverPort(0)
+    : client(nullptr), connected(false), myPlayerId(-1), frameCounter(0), serverPort(0)
 {
     // TODO: 初始化
 }
@@ -11,6 +12,11 @@ NetworkManager::NetworkManager()
 NetworkManager::~NetworkManager()
 {
     Disconnect();
+    if (client)
+    {
+        delete client;
+        client = nullptr;
+    }
 }
 
 // ============== 连接管理 ==============

@@ -1,3 +1,4 @@
+#include <winsock2.h>
 #include "MenuScene.h"
 #include <windows.h>
 
@@ -195,7 +196,7 @@ void MenuScene::HandleKeyboardInput()
         static bool upPressed = false;
         if (!upPressed)
         {
-            selectedOption = (selectedOption - 1 + menuItems.size()) % menuItems.size();
+            selectedOption = (int)((selectedOption - 1 + menuItems.size()) % menuItems.size());
             upPressed = true;
         }
     }
@@ -211,7 +212,7 @@ void MenuScene::HandleKeyboardInput()
         static bool downPressed = false;
         if (!downPressed)
         {
-            selectedOption = (selectedOption + 1) % menuItems.size();
+            selectedOption = (int)((selectedOption + 1) % menuItems.size());
             downPressed = true;
         }
     }

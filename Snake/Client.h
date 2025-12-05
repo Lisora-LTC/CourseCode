@@ -1,13 +1,13 @@
 #ifndef CLIENT_H
 #define CLIENT_H
+#include <winsock2.h>
+#include <WS2tcpip.h>
+#include <MSWSock.h>
+#include <windows.h>
 #include <sys/timeb.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <WS2tcpip.h>
-#include <MSWSock.h>
-#include <winsock2.h>
 #include <process.h>
-#include <windows.h>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -844,7 +844,7 @@ namespace NetworkHelper
         init();
     }
 
-    bool ClientHelper::connectToServer(LPCSTR ip, int port, LPCSTR name)
+    inline bool ClientHelper::connectToServer(LPCSTR ip, int port, LPCSTR name)
     {
         io_context_t *io_ctx = clientContext->getRecvIo();
         io_ctx->socket = clientContext->socket;
@@ -875,7 +875,7 @@ namespace NetworkHelper
         return false;
     }
 
-    DWORD __stdcall ClientHelper::workerFnCallerEx(void *lpParam)
+    inline DWORD __stdcall ClientHelper::workerFnCallerEx(void *lpParam)
     {
         if (lpParam == nullptr)
         {
@@ -886,7 +886,7 @@ namespace NetworkHelper
         return lpThis->workerFn();
     }
 
-    unsigned int ClientHelper::workerFn()
+    inline unsigned int ClientHelper::workerFn()
     {
         DWORD transferred_bytes = 0;
         socket_context_t *socket_ctx = NULL;
@@ -944,7 +944,7 @@ namespace NetworkHelper
         return 0;
     }
 
-    void ClientHelper::init()
+    inline void ClientHelper::init()
     {
         WSADATA wsaData;
         WORD wVersionRequested = MAKEWORD(2, 2);
@@ -991,7 +991,7 @@ namespace NetworkHelper
         }
     }
 
-    bool ClientHelper::_buildPackage(char *output, const uint32_t bufferLen, ULONG &writeLen, package_t &msg)
+    inline bool ClientHelper::_buildPackage(char *output, const uint32_t bufferLen, ULONG &writeLen, package_t &msg)
     {
         msg.getControl();
         if (bufferLen < 14UL + msg.msgLen)
@@ -1011,7 +1011,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_parsePackage(const char *input, const uint32_t packageLen, uint32_t &parseLen, package_t &msg_out)
+    inline bool ClientHelper::_parsePackage(const char *input, const uint32_t packageLen, uint32_t &parseLen, package_t &msg_out)
     {
         msg_out.getControl();
 
@@ -1127,7 +1127,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_connect_pushToQueue(io_context_t *io_ctx, LPCSTR ip, int port)
+    inline bool ClientHelper::_connect_pushToQueue(io_context_t *io_ctx, LPCSTR ip, int port)
     {
         if (io_ctx == NULL)
             return false;
@@ -1163,7 +1163,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_recv_pushToQueue(io_context_t *io_ctx)
+    inline bool ClientHelper::_recv_pushToQueue(io_context_t *io_ctx)
     {
         if (io_ctx == NULL)
             return false;
@@ -1183,7 +1183,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_send_pushToQueue(io_context_t *io_ctx /*, LPCSTR msg, int msg_len*/)
+    inline bool ClientHelper::_send_pushToQueue(io_context_t *io_ctx /*, LPCSTR msg, int msg_len*/)
     {
         if (io_ctx == NULL)
             return false;
@@ -1204,7 +1204,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_connect(socket_context_t *socket_ctx, io_context_t *io_ctx)
+    inline bool ClientHelper::_connect(socket_context_t *socket_ctx, io_context_t *io_ctx)
     {
         SetEvent(hGlobalEvent);
 
@@ -1219,7 +1219,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_recv(socket_context_t *socket_ctx, io_context_t *io_ctx, uint32_t recv_len)
+    inline bool ClientHelper::_recv(socket_context_t *socket_ctx, io_context_t *io_ctx, uint32_t recv_len)
     {
         // printf("receive len %u\n", recv_len);
         recv_pkg.getControl();
@@ -1245,7 +1245,7 @@ namespace NetworkHelper
         return true;
     }
 
-    bool ClientHelper::_send(socket_context_t *socket_ctx, io_context_t *io_ctx)
+    inline bool ClientHelper::_send(socket_context_t *socket_ctx, io_context_t *io_ctx)
     {
         return true;
     }
