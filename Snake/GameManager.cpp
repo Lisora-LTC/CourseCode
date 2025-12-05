@@ -75,6 +75,9 @@ void GameManager::Run()
 
         DWORD currentTime = GetTickCount();
 
+        // 更新输入系统（读取所有输入到缓冲区）
+        inputMgr.Update();
+
         // UI输入检测 - 高频率响应（每帧都检测）
         HandleInput();
 
@@ -209,17 +212,21 @@ void GameManager::GameOver()
 
     while (waitingForInput)
     {
-        // 检测鼠标点击（使用InputManager自动清空队列）
+        // 更新输入缓冲
+        inputMgr.Update();
+
+        // 检测鼠标点击（使用缓冲系统）
         MOUSEMSG msg;
-        if (inputMgr.GetLatestMouseMessage(msg))
+        while (inputMgr.GetNextMouseMessage(msg))
         {
             if (msg.uMsg == WM_LBUTTONDOWN)
             {
-                // 检测是否点击"返回菜单"按钮
+                // 检测是否点击“返回菜单”按钮
                 if (msg.x >= buttonX && msg.x <= buttonX + buttonWidth &&
                     msg.y >= buttonY && msg.y <= buttonY + buttonHeight)
                 {
                     waitingForInput = false;
+                    break;
                 }
             }
         }
@@ -284,22 +291,14 @@ void GameManager::HandleInput()
         isRunning = false;
     }
 
-    // 检测退出按钮点击
-    MOUSEMSG msg;
-    if (inputMgr.GetLatestMouseMessage(msg))
+    // 检测退出按钮点击（使用缓冲系统，不丢失点击）
+    if (renderer)
     {
-        if (msg.uMsg == WM_LBUTTONDOWN)
+        int btnX, btnY, btnWidth, btnHeight;
+        renderer->GetExitButtonBounds(btnX, btnY, btnWidth, btnHeight);
+        if (inputMgr.IsMouseClickInRect(btnX, btnY, btnWidth, btnHeight, WM_LBUTTONDOWN))
         {
-            int btnX, btnY, btnWidth, btnHeight;
-            if (renderer)
-            {
-                renderer->GetExitButtonBounds(btnX, btnY, btnWidth, btnHeight);
-                if (msg.x >= btnX && msg.x <= btnX + btnWidth &&
-                    msg.y >= btnY && msg.y <= btnY + btnHeight)
-                {
-                    isRunning = false;
-                }
-            }
+            isRunning = false;
         }
     }
 }
@@ -442,10 +441,10 @@ void GameManager::LoadGameRecords()
 // ============== 私有方法 ==============
 void GameManager::InitSingleMode()
 {
-    // 1. 创建渲染器
+    // 1. 创建渲染器（不创建窗口，由main管理）
     renderer = new Renderer();
     int totalWidth = MAP_WIDTH * BLOCK_SIZE + 200; // 游戏区域 + UI区域
-    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇游戏");
+    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇游戏", false);
 
     // 2. 创建地图
     gameMap = new GameMap();
@@ -468,10 +467,10 @@ void GameManager::InitSingleMode()
 
 void GameManager::InitLocalPVPMode()
 {
-    // 创建渲染器
+    // 创建渲染器（不创建窗口，由main管理）
     renderer = new Renderer();
     int totalWidth = MAP_WIDTH * BLOCK_SIZE + 200;
-    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇 - 本地双人");
+    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇 - 本地双人", false);
 
     // 创建地图
     gameMap = new GameMap();

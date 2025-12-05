@@ -18,20 +18,44 @@ int main()
     // 初始化随机数种子
     Utils::InitRandom();
 
-    // 创建菜单
-    MenuScene menu;
+    // 创建全局窗口（最大尺寸，足够容纳菜单和游戏）
+    int maxWidth = MAP_WIDTH * BLOCK_SIZE + 200; // 游戏窗口宽度
+    int maxHeight = MAP_HEIGHT * BLOCK_SIZE;     // 游戏窗口高度
+    initgraph(maxWidth, maxHeight);
+    SetWindowText(GetHWnd(), L"贪吃蛇游戏");
 
-    // 显示菜单，获取用户选择的模式
-    GameMode selectedMode = menu.Show();
+    // 禁用最大化按钮
+    HWND gameHwnd = GetHWnd();
+    SetWindowLong(gameHwnd, GWL_STYLE, GetWindowLong(gameHwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
 
-    // 创建游戏管理器
-    GameManager game;
+    // 主循环：菜单 -> 游戏 -> 菜单
+    while (true)
+    {
+        // 显示菜单（不管理窗口）
+        MenuScene menu(false);
+        GameMode selectedMode = menu.Show();
 
-    // 初始化游戏
-    game.Init(selectedMode);
+        // 用户选择退出
+        if (selectedMode == EXIT)
+        {
+            break;
+        }
 
-    // 运行游戏主循环
-    game.Run();
+        // 创建游戏管理器
+        GameManager game;
+
+        // 初始化游戏
+        game.Init(selectedMode);
+
+        // 运行游戏主循环
+        game.Run();
+
+        // 游戏结束，清空屏幕准备下一次循环
+        cleardevice();
+    }
+
+    // 关闭全局窗口
+    closegraph();
 
     return 0;
 }

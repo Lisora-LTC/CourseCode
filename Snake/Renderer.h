@@ -14,6 +14,7 @@ private:
     int windowWidth;
     int windowHeight;
     bool initialized;
+    bool ownsWindow; // 是否拥有窗口所有权
 
 public:
     // ============== 构造与析构 ==============
@@ -22,9 +23,13 @@ public:
 
     // ============== 初始化与清理 ==============
     /**
-     * @brief 初始化图形窗口
+     * @brief 初始化渲染器
+     * @param width 窗口宽度
+     * @param height 窗口高度
+     * @param title 窗口标题
+     * @param createWindow 是否创建窗口（默认false，由外部管理）
      */
-    bool Init(int width, int height, const wchar_t *title = L"贪吃蛇游戏");
+    bool Init(int width, int height, const wchar_t *title = L"贪吃蛇游戏", bool createWindow = false);
 
     /**
      * @brief 关闭图形窗口

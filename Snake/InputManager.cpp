@@ -1,8 +1,10 @@
 #include "InputManager.h"
+#include <vector>
 
 // ============== 构造与析构 ==============
 InputManager::InputManager()
-    : leftButtonLastState(false), rightButtonLastState(false)
+    : leftButtonLastState(false), rightButtonLastState(false),
+      lastMouseX(0), lastMouseY(0)
 {
 }
 
@@ -76,6 +78,48 @@ void InputManager::ClearMouseQueue()
     }
 }
 
+bool InputManager::GetNextMouseMessage(MOUSEMSG &msg)
+{
+    if (!mouseMessageBuffer.empty())
+    {
+        msg = mouseMessageBuffer.front();
+        mouseMessageBuffer.erase(mouseMessageBuffer.begin());
+        return true;
+    }
+    return false;
+}
+
+bool InputManager::IsMouseClickInRect(int x, int y, int width, int height, UINT clickType)
+{
+    // 遍历缓冲区中的所有消息
+    for (auto it = mouseMessageBuffer.begin(); it != mouseMessageBuffer.end(); ++it)
+    {
+        if (it->uMsg == clickType)
+        {
+            // 检测点击位置是否在矩形内
+            if (it->x >= x && it->x <= x + width &&
+                it->y >= y && it->y <= y + height)
+            {
+                // 找到匹配的点击，从缓冲区移除并返回true
+                mouseMessageBuffer.erase(it);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void InputManager::GetMousePosition(int &x, int &y)
+{
+    x = lastMouseX;
+    y = lastMouseY;
+}
+
+void InputManager::ClearMouseBuffer()
+{
+    mouseMessageBuffer.clear();
+}
+
 // ============== 窗口相关 ==============
 bool InputManager::IsWindowClosed()
 {
@@ -100,6 +144,17 @@ void InputManager::Update()
     // 更新鼠标按钮状态
     leftButtonLastState = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
     rightButtonLastState = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+
+    // 读取所有鼠标消息到缓冲区（不丢失任何消息）
+    while (MouseHit())
+    {
+        MOUSEMSG msg = GetMouseMsg();
+        mouseMessageBuffer.push_back(msg);
+
+        // 更新鼠标位置缓存
+        lastMouseX = msg.x;
+        lastMouseY = msg.y;
+    }
 }
 
 // ============== 私有方法 ==============

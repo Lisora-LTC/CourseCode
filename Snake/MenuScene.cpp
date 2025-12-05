@@ -3,22 +3,30 @@
 #include <windows.h>
 
 // ============== 构造与析构 ==============
-MenuScene::MenuScene()
-    : selectedOption(0), menuRunning(false), currentMenu(MAIN_MENU)
+MenuScene::MenuScene(bool manageWindow)
+    : selectedOption(0), menuRunning(false), currentMenu(MAIN_MENU), manageWindow(manageWindow)
 {
     InitMainMenu();
 }
 
 MenuScene::~MenuScene()
 {
-    closegraph();
+    // 只有当MenuScene管理窗口时才关闭
+    if (manageWindow)
+    {
+        closegraph();
+    }
 }
 
 // ============== 主方法 ==============
 GameMode MenuScene::Show()
 {
-    // 1. 初始化图形窗口
-    initgraph(800, 600);
+    // 1. 初始化图形窗口（仅当管理窗口时）
+    if (manageWindow)
+    {
+        initgraph(800, 600);
+    }
+
     setbkcolor(RGB(20, 20, 40));
     cleardevice();
 
@@ -34,6 +42,9 @@ GameMode MenuScene::Show()
             exit(0);
         }
 
+        // 更新输入缓冲
+        inputMgr.Update();
+
         HandleMouseInput();
         HandleKeyboardInput();
         Render();
@@ -42,7 +53,12 @@ GameMode MenuScene::Show()
 
     // 返回选择的模式
     selectedMode = menuItems[selectedOption].mode;
-    closegraph();
+
+    // 只有当管理窗口时才关闭
+    if (manageWindow)
+    {
+        closegraph();
+    }
 
     return selectedMode;
 }
@@ -85,7 +101,7 @@ void MenuScene::InitMainMenu()
     // 退出游戏
     MenuItem item3;
     item3.text = L"退出游戏";
-    item3.mode = SINGLE; // 不使用
+    item3.mode = EXIT; // 使用EXIT模式
     item3.x = startX;
     item3.y = startY + spacing * 2;
     item3.width = itemWidth;
@@ -208,7 +224,8 @@ void MenuScene::DrawMenuItem(const MenuItem &item, bool isSelected)
 void MenuScene::HandleMouseInput()
 {
     MOUSEMSG msg;
-    while (inputMgr.GetLatestMouseMessage(msg))
+    // 使用GetNextMouseMessage从缓冲区读取消息
+    while (inputMgr.GetNextMouseMessage(msg))
     {
         // 检测鼠标移动
         if (msg.uMsg == WM_MOUSEMOVE)

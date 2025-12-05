@@ -18,6 +18,7 @@ private:
     int selectedOption;   // 当前选中的选项
     bool menuRunning;     // 菜单是否运行中
     MenuType currentMenu; // 当前菜单类型
+    bool manageWindow;    // 是否管理窗口生命周期
 
     InputManager inputMgr; // 统一输入管理器
 
@@ -38,7 +39,11 @@ private:
 
 public:
     // ============== 构造与析构 ==============
-    MenuScene();
+    /**
+     * @brief 构造函数
+     * @param manageWindow 是否由MenuScene管理窗口生命周期（默认false）
+     */
+    MenuScene(bool manageWindow = false);
     ~MenuScene();
 
     // ============== 主方法 ==============

@@ -2,7 +2,7 @@
 #include <sstream>
 
 // ============== 构造与析构 ==============
-Renderer::Renderer() : windowWidth(0), windowHeight(0), initialized(false)
+Renderer::Renderer() : windowWidth(0), windowHeight(0), initialized(false), ownsWindow(false)
 {
 }
 
@@ -12,16 +12,25 @@ Renderer::~Renderer()
 }
 
 // ============== 初始化与清理 ==============
-bool Renderer::Init(int width, int height, const wchar_t *title)
+bool Renderer::Init(int width, int height, const wchar_t *title, bool createWindow)
 {
-    initgraph(width, height);
-    SetWindowText(GetHWnd(), title);
+    ownsWindow = createWindow;
+
+    if (createWindow)
+    {
+        initgraph(width, height);
+    }
+
+    // 设置窗口属性
+    HWND hwnd = GetHWnd();
+    if (hwnd)
+    {
+        SetWindowText(hwnd, title);
+        SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
+    }
+
     setbkcolor(BLACK);
     cleardevice();
-
-    // 设置窗口关闭时退出程序
-    HWND hwnd = GetHWnd();
-    SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
 
     windowWidth = width;
     windowHeight = height;
@@ -31,7 +40,7 @@ bool Renderer::Init(int width, int height, const wchar_t *title)
 
 void Renderer::Close()
 {
-    if (initialized)
+    if (initialized && ownsWindow)
     {
         closegraph();
     }

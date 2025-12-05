@@ -80,7 +80,8 @@ enum GameMode
     SINGLE,    // 单人模式
     LOCAL_PVP, // 本地双人对战
     NET_PVP,   // 网络对战
-    PVE        // 人机对战
+    PVE,       // 人机对战
+    EXIT       // 退出游戏
 };
 
 // 食物类型枚举
