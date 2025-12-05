@@ -3,10 +3,18 @@
 #include "GameManager.h"
 #include "Common.h"
 #include <iostream>
+#include <windows.h>
 
 // ============== 主函数 ==============
 int main()
 {
+    // 隐藏控制台窗口
+    HWND hwnd = GetConsoleWindow();
+    if (hwnd != NULL)
+    {
+        ShowWindow(hwnd, SW_HIDE);
+    }
+
     // 初始化随机数种子
     Utils::InitRandom();
 

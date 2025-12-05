@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.h"
+#include "InputManager.h"
 #include "NetworkManager.h"
 #include "Snake.h"
 #include "GameMap.h"
@@ -32,6 +33,7 @@ private:
     FoodManager *foodManager;
     Renderer *renderer;
     NetworkManager *networkManager; // 网络管理器（可选）
+    InputManager inputMgr;          // 统一输入管理器
 
     // 游戏状态
     GameState currentState;
@@ -90,6 +92,11 @@ public:
      * @brief 处理输入
      */
     void HandleInput();
+
+    /**
+     * @brief 高频采样游戏输入（缓存方向键）
+     */
+    void CacheGameInput();
 
     /**
      * @brief 检测碰撞

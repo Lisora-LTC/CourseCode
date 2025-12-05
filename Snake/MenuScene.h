@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.h"
+#include "InputManager.h"
 #include <graphics.h>
 #include <string>
 
@@ -8,15 +9,29 @@
 class MenuScene
 {
 private:
-    int selectedOption; // 当前选中的选项
-    bool menuRunning;   // 菜单是否运行中
+    enum MenuType
+    {
+        MAIN_MENU,
+        MULTIPLAYER_MENU
+    };
+
+    int selectedOption;   // 当前选中的选项
+    bool menuRunning;     // 菜单是否运行中
+    MenuType currentMenu; // 当前菜单类型
+
+    InputManager inputMgr; // 统一输入管理器
 
     // 菜单选项
     struct MenuItem
     {
         std::wstring text;
-        GameMode mode;
-        int x, y, width, height;
+        GameMode mode = SINGLE;
+        int x = 0;
+        int y = 0;
+        int width = 0;
+        int height = 0;
+        bool isSubmenu = false; // 是否进入子菜单
+        bool isExit = false;    // 是否退出
     };
 
     std::vector<MenuItem> menuItems;
@@ -35,9 +50,14 @@ public:
 
 private:
     /**
-     * @brief 初始化菜单项
+     * @brief 初始化主菜单项
      */
-    void InitMenuItems();
+    void InitMainMenu();
+
+    /**
+     * @brief 初始化双人游戏子菜单
+     */
+    void InitMultiplayerMenu();
 
     /**
      * @brief 渲染菜单

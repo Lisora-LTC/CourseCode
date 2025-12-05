@@ -4,14 +4,20 @@
 #include "Common.h"
 
 // ============== 构造与析构 ==============
-KeyboardController::KeyboardController() : playerIndex(0), lastDirection(NONE)
+KeyboardController::KeyboardController() : playerIndex(0), lastDirection(NONE),
+                                           bufferedInput(NONE), hasBufferedInput(false)
 {
     InitKeyBindings(0);
+    for (int i = 0; i < 4; i++)
+        keyState[i] = false;
 }
 
-KeyboardController::KeyboardController(int player) : playerIndex(player), lastDirection(NONE)
+KeyboardController::KeyboardController(int player) : playerIndex(player), lastDirection(NONE),
+                                                     bufferedInput(NONE), hasBufferedInput(false)
 {
     InitKeyBindings(player);
+    for (int i = 0; i < 4; i++)
+        keyState[i] = false;
 }
 
 KeyboardController::~KeyboardController()
@@ -22,11 +28,17 @@ KeyboardController::~KeyboardController()
 // ============== 实现接口方法 ==============
 Direction KeyboardController::MakeDecision(const Snake &snake, const GameMap &map)
 {
-    // 1. 检测当前键盘输入
-    Direction inputDir = DetectInput();
-
-    // 2. 获取蛇当前的方向
+    // 1. 获取蛇当前的方向
     Direction currentDir = snake.GetDirection();
+
+    // 2. 如果有缓冲的输入，使用它
+    Direction inputDir = NONE;
+    if (hasBufferedInput)
+    {
+        inputDir = bufferedInput;
+        hasBufferedInput = false; // 消费缓冲
+        bufferedInput = NONE;
+    }
 
     // 3. 如果没有输入，保持当前方向
     if (inputDir == NONE)
@@ -45,6 +57,47 @@ Direction KeyboardController::MakeDecision(const Snake &snake, const GameMap &ma
     // 5. 返回有效的新方向
     lastDirection = inputDir;
     return inputDir;
+}
+
+void KeyboardController::CacheInput()
+{
+    // 使用边沿检测，只在按键刚按下时记录
+    bool currentState[4];
+    currentState[0] = IsKeyPressed(keyUp);
+    currentState[1] = IsKeyPressed(keyDown);
+    currentState[2] = IsKeyPressed(keyLeft);
+    currentState[3] = IsKeyPressed(keyRight);
+
+    // 检测上键按下（边沿触发）
+    if (currentState[0] && !keyState[0])
+    {
+        bufferedInput = UP;
+        hasBufferedInput = true;
+    }
+    // 检测下键按下
+    else if (currentState[1] && !keyState[1])
+    {
+        bufferedInput = DOWN;
+        hasBufferedInput = true;
+    }
+    // 检测左键按下
+    else if (currentState[2] && !keyState[2])
+    {
+        bufferedInput = LEFT;
+        hasBufferedInput = true;
+    }
+    // 检测右键按下
+    else if (currentState[3] && !keyState[3])
+    {
+        bufferedInput = RIGHT;
+        hasBufferedInput = true;
+    }
+
+    // 更新按键状态
+    for (int i = 0; i < 4; i++)
+    {
+        keyState[i] = currentState[i];
+    }
 }
 
 void KeyboardController::Init()

@@ -19,6 +19,10 @@ bool Renderer::Init(int width, int height, const wchar_t *title)
     setbkcolor(BLACK);
     cleardevice();
 
+    // 设置窗口关闭时退出程序
+    HWND hwnd = GetHWnd();
+    SetWindowLong(hwnd, GWL_STYLE, GetWindowLong(hwnd, GWL_STYLE) & ~WS_MAXIMIZEBOX);
+
     windowWidth = width;
     windowHeight = height;
     initialized = true;
@@ -156,6 +160,28 @@ void Renderer::DrawUI(int score, int highScore, int length, int lives, int time)
     // 绘制分隔线
     setlinecolor(RGB(100, 100, 100));
     line(MAP_WIDTH * BLOCK_SIZE + 10, 0, MAP_WIDTH * BLOCK_SIZE + 10, windowHeight);
+
+    // 绘制退出按钮
+    int buttonX = uiX;
+    int buttonY = windowHeight - 80;
+    int buttonWidth = 150;
+    int buttonHeight = 50;
+
+    setfillcolor(RGB(200, 50, 50));
+    setlinecolor(RGB(255, 100, 100));
+    setlinestyle(PS_SOLID, 2);
+    fillrectangle(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight);
+
+    // 按钮文字
+    settextstyle(20, 0, L"微软雅黑");
+    settextcolor(WHITE);
+    setbkmode(TRANSPARENT);
+    const wchar_t *btnText = L"退出游戏";
+    int textWidth = textwidth(btnText);
+    int textHeight = textheight(btnText);
+    int textX = buttonX + (buttonWidth - textWidth) / 2;
+    int textY = buttonY + (buttonHeight - textHeight) / 2;
+    outtextxy(textX, textY, btnText);
 }
 
 void Renderer::DrawPauseScreen()
@@ -175,18 +201,44 @@ void Renderer::DrawGameOverScreen(int finalScore, bool isHighScore)
     setfillcolor(RGB(50, 0, 0));
     solidrectangle(0, 0, windowWidth, windowHeight);
 
-    DrawTextCentered(L"游戏结束", windowHeight / 2 - 80, 48, RED);
+    // 游戏结束标题
+    DrawTextCentered(L"游戏结束", windowHeight / 2 - 120, 48, RED);
 
+    // 最终得分
     wchar_t scoreText[100];
     swprintf_s(scoreText, L"最终得分: %d", finalScore);
-    DrawTextCentered(scoreText, windowHeight / 2 - 20, 32, WHITE);
+    DrawTextCentered(scoreText, windowHeight / 2 - 50, 32, WHITE);
 
+    // 新纪录提示
     if (isHighScore)
     {
-        DrawTextCentered(L"★ 新纪录！★", windowHeight / 2 + 30, 28, YELLOW);
+        DrawTextCentered(L"★ 新纪录！★", windowHeight / 2, 28, YELLOW);
     }
 
-    DrawTextCentered(L"按任意键返回菜单", windowHeight / 2 + 80, 20, RGB(150, 150, 150));
+    // 绘制返回按钮
+    int buttonX = 300;
+    int buttonY = 400;
+    int buttonWidth = 200;
+    int buttonHeight = 50;
+
+    setfillcolor(RGB(70, 130, 180));
+    setlinecolor(RGB(100, 200, 255));
+    setlinestyle(PS_SOLID, 2);
+    fillrectangle(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight);
+
+    // 按钮文字
+    settextstyle(24, 0, L"微软雅黑");
+    settextcolor(WHITE);
+    setbkmode(TRANSPARENT);
+    const wchar_t *btnText = L"返回菜单";
+    int textWidth = textwidth(btnText);
+    int textHeight = textheight(btnText);
+    int textX = buttonX + (buttonWidth - textWidth) / 2;
+    int textY = buttonY + (buttonHeight - textHeight) / 2;
+    outtextxy(textX, textY, btnText);
+
+    // 提示信息
+    DrawTextCentered(L"点击按钮或按回车/ESC返回", windowHeight / 2 + 150, 18, RGB(150, 150, 150));
 }
 
 // ============== 工具方法 ==============
@@ -288,4 +340,13 @@ void Renderer::DrawBlock(int gridX, int gridY, COLORREF color, bool filled)
         setlinecolor(color);
         rectangle(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1);
     }
+}
+
+void Renderer::GetExitButtonBounds(int &x, int &y, int &width, int &height) const
+{
+    int uiX = MAP_WIDTH * BLOCK_SIZE + 20;
+    x = uiX;
+    y = windowHeight - 80;
+    width = 150;
+    height = 50;
 }

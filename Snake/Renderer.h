@@ -64,7 +64,7 @@ public:
 
     // ============== UI绘制 ==============
     /**
-     * @brief 绘制游戏UI信息
+     * @brief 绘制游戏UI信息（包含退出按钮）
      * @param score 当前得分
      * @param highScore 历史最高分
      * @param length 蛇长度
@@ -72,6 +72,12 @@ public:
      * @param time 游戏时间（秒）
      */
     void DrawUI(int score, int highScore, int length, int lives, int time);
+
+    /**
+     * @brief 获取退出按钮区域（用于点击检测）
+     * @return 返回按钮的(x, y, width, height)
+     */
+    void GetExitButtonBounds(int &x, int &y, int &width, int &height) const;
 
     /**
      * @brief 绘制暂停界面

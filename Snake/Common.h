@@ -2,9 +2,23 @@
 
 // 全局常量、枚举、结构体、工具函数定义
 
+// 定义 Windows 版本为 Vista 及以上，以支持 inet_pton 等 API
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+
+// 必须在包含 windows.h (graphics.h) 之前包含 winsock2.h
+#include <winsock2.h>
+#include <WS2tcpip.h> // inet_pton
+#include <MSWSock.h>  // ConnectEx
+
+#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Mswsock.lib")
+
 #include <cstdlib>
 #include <ctime>
 #include <vector>
+#include <graphics.h> // EasyX 图形库
 
 // ============== 常量定义 ==============
 const int BLOCK_SIZE = 20;                         // 每个格子的像素大小
@@ -202,6 +216,19 @@ public:
         int dx = p1.x - p2.x;
         int dy = p1.y - p2.y;
         return dx * dx + dy * dy;
+    }
+
+    // ============== 窗口相关 ==============
+
+    // 检查 EasyX 窗口是否被关闭
+    static bool IsWindowClosed()
+    {
+        HWND hwnd = GetHWnd();
+        if (hwnd == NULL || !IsWindow(hwnd))
+        {
+            return true;
+        }
+        return false;
     }
 
 private:

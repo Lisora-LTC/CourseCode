@@ -1,9 +1,7 @@
-#include <winsock2.h>
 #include "GameManager.h"
 #include "KeyboardController.h"
 #include "NetworkController.h"
 #include "AIController.h"
-#include <windows.h>
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -40,6 +38,7 @@ void GameManager::Cleanup()
         delete snake;
     }
     snakes.clear();
+    playerSnake = nullptr; // 重要：清空悬空指针
 
     delete gameMap;
     delete foodManager;
@@ -62,13 +61,25 @@ void GameManager::Run()
     currentState = PLAYING;
 
     DWORD lastUpdateTime = GetTickCount();
-    const DWORD updateInterval = GAME_SPEED;
+    DWORD lastRenderTime = GetTickCount();
+    const DWORD updateInterval = GAME_SPEED; // 游戏逻辑更新：100ms (10 FPS)
+    const DWORD renderInterval = 16;         // 渲染更新：16ms (60 FPS)
 
     while (isRunning && currentState != MENU)
     {
-        HandleInput();
+        // 检测窗口是否被关闭
+        if (inputMgr.IsWindowClosed())
+        {
+            exit(0);
+        }
 
         DWORD currentTime = GetTickCount();
+
+        // UI输入检测 - 高频率响应（每帧都检测）
+        HandleInput();
+
+        // 高频采样游戏输入（缓存方向键输入）
+        CacheGameInput(); // 游戏逻辑更新 - 低频率（控制蛇的移动速度）
         if (currentTime - lastUpdateTime >= updateInterval)
         {
             if (!isPaused && currentState == PLAYING)
@@ -85,8 +96,14 @@ void GameManager::Run()
             lastUpdateTime = currentTime;
         }
 
-        Render();
-        Sleep(10); // 降低CPU占用
+        // 渲染更新 - 中频率（流畅的视觉反馈）
+        if (currentTime - lastRenderTime >= renderInterval)
+        {
+            Render();
+            lastRenderTime = currentTime;
+        }
+
+        Sleep(1); // 极小延迟，保持高响应性
     }
 }
 
@@ -157,26 +174,69 @@ void GameManager::GameOver()
     // 保存记录
     SaveGameRecord();
 
-    // 显示游戏结束界面
+    // 更新最高分
+    if (score > highScore)
+    {
+        highScore = score;
+        std::ofstream outFile("highscore.txt");
+        if (outFile.is_open())
+        {
+            outFile << highScore;
+            outFile.close();
+        }
+    }
+
+    // 显示游戏结束界面并等待用户选择
     bool isNewHighScore = (score == highScore && score > 0);
     if (renderer)
     {
+        // 绘制游戏结束界面
+        renderer->BeginBatch();
         renderer->DrawGameOverScreen(score, isNewHighScore);
+        renderer->EndBatch();
     }
 
-    // 等待用户按键
-    Sleep(1000);
-    while (true)
+    // 等待用户交互
+    Sleep(500); // 短暂延迟
+
+    // 定义按钮区域
+    int buttonX = 300;
+    int buttonY = 400;
+    int buttonWidth = 200;
+    int buttonHeight = 50;
+
+    bool waitingForInput = true;
+
+    while (waitingForInput)
     {
-        if (GetAsyncKeyState(VK_RETURN) & 0x8000)
+        // 检测鼠标点击（使用InputManager自动清空队列）
+        MOUSEMSG msg;
+        if (inputMgr.GetLatestMouseMessage(msg))
         {
-            break;
+            if (msg.uMsg == WM_LBUTTONDOWN)
+            {
+                // 检测是否点击"返回菜单"按钮
+                if (msg.x >= buttonX && msg.x <= buttonX + buttonWidth &&
+                    msg.y >= buttonY && msg.y <= buttonY + buttonHeight)
+                {
+                    waitingForInput = false;
+                }
+            }
         }
-        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+
+        // 检测键盘（使用InputManager自动防抖）
+        if (inputMgr.IsKeyJustPressed(VK_RETURN) || inputMgr.IsKeyJustPressed(VK_ESCAPE))
         {
-            break;
+            waitingForInput = false;
         }
-        Sleep(100);
+
+        // 检测窗口关闭
+        if (inputMgr.IsWindowClosed())
+        {
+            exit(0);
+        }
+
+        Sleep(10);
     }
 
     isRunning = false;
@@ -212,29 +272,61 @@ void GameManager::Render()
 
 void GameManager::HandleInput()
 {
-    // 检测暂停键（空格）
-    if (GetAsyncKeyState(VK_SPACE) & 0x8000)
+    // 检测暂停键（空格）- 使用InputManager自动防抖
+    if (inputMgr.IsKeyJustPressed(VK_SPACE))
     {
-        static bool spacePressed = false;
-        if (!spacePressed)
-        {
-            TogglePause();
-            spacePressed = true;
-        }
-    }
-    else
-    {
-        static bool spacePressed = false;
-        spacePressed = false;
+        TogglePause();
     }
 
-    // 检测ESC键（退出）
-    if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+    // 检测ESC键（退出）- 使用InputManager自动防抖
+    if (inputMgr.IsKeyJustPressed(VK_ESCAPE))
     {
         isRunning = false;
     }
+
+    // 检测退出按钮点击
+    MOUSEMSG msg;
+    if (inputMgr.GetLatestMouseMessage(msg))
+    {
+        if (msg.uMsg == WM_LBUTTONDOWN)
+        {
+            int btnX, btnY, btnWidth, btnHeight;
+            if (renderer)
+            {
+                renderer->GetExitButtonBounds(btnX, btnY, btnWidth, btnHeight);
+                if (msg.x >= btnX && msg.x <= btnX + btnWidth &&
+                    msg.y >= btnY && msg.y <= btnY + btnHeight)
+                {
+                    isRunning = false;
+                }
+            }
+        }
+    }
 }
 
+void GameManager::CacheGameInput()
+{
+    // 遍历所有蛇，让它们的键盘控制器缓存输入
+    for (auto snake : snakes)
+    {
+        if (snake && snake->IsAlive())
+        {
+            IController *controller = snake->GetController();
+            if (controller)
+            {
+                // 检查是否是键盘控制器
+                if (std::string(controller->GetTypeName()) == "KeyboardController")
+                {
+                    KeyboardController *kbCtrl = dynamic_cast<KeyboardController *>(controller);
+                    if (kbCtrl)
+                    {
+                        kbCtrl->CacheInput();
+                    }
+                }
+            }
+        }
+    }
+}
 void GameManager::CheckCollisions()
 {
     if (!playerSnake || !playerSnake->IsAlive())
@@ -248,14 +340,23 @@ void GameManager::CheckCollisions()
     {
         if (wallType == HARD_WALL || wallType == BOUNDARY)
         {
-            // 硬墙或边界：蛇长度减半
-            playerSnake->ShrinkByHalf();
-            wallCollisions++;
-
-            if (playerSnake->GetLength() < 2)
+            // 单人模式：撞墙直接死亡
+            if (currentMode == SINGLE || currentMode == BEGINNER)
             {
                 playerSnake->SetAlive(false);
-                lives--;
+                lives = 0; // 直接游戏结束
+            }
+            else
+            {
+                // 多人/进阶模式：蛇长度减半
+                playerSnake->ShrinkByHalf();
+                wallCollisions++;
+
+                if (playerSnake->GetLength() < 2)
+                {
+                    playerSnake->SetAlive(false);
+                    lives--;
+                }
             }
         }
         else if (wallType == SOFT_WALL)
@@ -268,7 +369,8 @@ void GameManager::CheckCollisions()
     // 2. 检测撞自己
     if (playerSnake->CheckSelfCollision())
     {
-        HandleSnakeDeath(playerSnake);
+        playerSnake->SetAlive(false);
+        lives = 0; // 撞自己直接结束
     }
 
     // 3. 检测撞其他蛇（多蛇模式）
@@ -479,6 +581,12 @@ void GameManager::HandleSnakeDeath(Snake *snake)
         return;
 
     snake->SetAlive(false);
+
+    // 减少生命值
+    if (snake == playerSnake)
+    {
+        lives--;
+    }
 
     // 根据模式处理蛇尸
     if (currentMode == ADVANCED)

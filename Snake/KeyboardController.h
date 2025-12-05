@@ -16,6 +16,13 @@ private:
     int keyLeft;
     int keyRight;
 
+    // 输入缓冲系统
+    Direction bufferedInput; // 缓存的输入
+    bool hasBufferedInput;   // 是否有缓存的输入
+
+    // 按键状态（用于边沿检测）
+    bool keyState[4]; // UP, DOWN, LEFT, RIGHT 的状态
+
 public:
     // ============== 构造与析构 ==============
     KeyboardController();
@@ -26,6 +33,11 @@ public:
     Direction MakeDecision(const Snake &snake, const GameMap &map) override;
     void Init() override;
     const char *GetTypeName() const override { return "KeyboardController"; }
+
+    /**
+     * @brief 高频采样输入（每帧调用，缓存按键）
+     */
+    void CacheInput();
 
 private:
     /**

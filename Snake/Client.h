@@ -983,7 +983,7 @@ namespace NetworkHelper
         DWORD bytes = 0;
         result = WSAIoctl(clientContext->socket, SIO_GET_EXTENSION_FUNCTION_POINTER,
                           &GuidConnectEx, sizeof(GuidConnectEx),
-                          &lpfnConnecter, sizeof(lpfnConnecter),
+                          &lpfnConnecter, sizeof(LPFN_CONNECTEX),
                           &bytes, NULL, NULL);
         if (result == SOCKET_ERROR)
         {

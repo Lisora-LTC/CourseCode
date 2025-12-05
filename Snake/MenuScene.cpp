@@ -3,9 +3,10 @@
 #include <windows.h>
 
 // ============== 构造与析构 ==============
-MenuScene::MenuScene() : selectedOption(0), menuRunning(false)
+MenuScene::MenuScene()
+    : selectedOption(0), menuRunning(false), currentMenu(MAIN_MENU)
 {
-    InitMenuItems();
+    InitMainMenu();
 }
 
 MenuScene::~MenuScene()
@@ -27,10 +28,16 @@ GameMode MenuScene::Show()
     // 2. 进入菜单循环
     while (menuRunning)
     {
+        // 检测窗口是否被关闭
+        if (inputMgr.IsWindowClosed())
+        {
+            exit(0);
+        }
+
         HandleMouseInput();
         HandleKeyboardInput();
         Render();
-        Sleep(50);
+        Sleep(10);
     }
 
     // 返回选择的模式
@@ -41,65 +48,110 @@ GameMode MenuScene::Show()
 }
 
 // ============== 私有方法 ==============
-void MenuScene::InitMenuItems()
+void MenuScene::InitMainMenu()
 {
     menuItems.clear();
 
     int startX = 250;
-    int startY = 180;
+    int startY = 200;
     int itemWidth = 300;
     int itemHeight = 50;
-    int spacing = 60;
+    int spacing = 70;
 
-    // 单人模式
+    // 单人游戏
     MenuItem item1;
-    item1.text = L"单人模式";
+    item1.text = L"单人游戏";
     item1.mode = SINGLE;
     item1.x = startX;
     item1.y = startY;
     item1.width = itemWidth;
     item1.height = itemHeight;
+    item1.isSubmenu = false;
+    item1.isExit = false;
     menuItems.push_back(item1);
 
-    // 本地双人
+    // 双人游戏（进入子菜单）
     MenuItem item2;
-    item2.text = L"本地双人对战";
-    item2.mode = LOCAL_PVP;
+    item2.text = L"双人游戏";
+    item2.mode = LOCAL_PVP; // 默认值
     item2.x = startX;
     item2.y = startY + spacing;
     item2.width = itemWidth;
     item2.height = itemHeight;
+    item2.isSubmenu = true;
+    item2.isExit = false;
     menuItems.push_back(item2);
 
-    // 入门版
+    // 退出游戏
     MenuItem item3;
-    item3.text = L"入门版（撞墙死亡）";
-    item3.mode = BEGINNER;
+    item3.text = L"退出游戏";
+    item3.mode = SINGLE; // 不使用
     item3.x = startX;
     item3.y = startY + spacing * 2;
     item3.width = itemWidth;
     item3.height = itemHeight;
+    item3.isSubmenu = false;
+    item3.isExit = true;
+    menuItems.push_back(item3);
+}
+
+void MenuScene::InitMultiplayerMenu()
+{
+    menuItems.clear();
+
+    int startX = 250;
+    int startY = 200;
+    int itemWidth = 300;
+    int itemHeight = 50;
+    int spacing = 70;
+
+    // 本地双人
+    MenuItem item1;
+    item1.text = L"本地双人";
+    item1.mode = LOCAL_PVP;
+    item1.x = startX;
+    item1.y = startY;
+    item1.width = itemWidth;
+    item1.height = itemHeight;
+    item1.isSubmenu = false;
+    item1.isExit = false;
+    menuItems.push_back(item1);
+
+    // 人机对战
+    MenuItem item2;
+    item2.text = L"人机对战";
+    item2.mode = PVE;
+    item2.x = startX;
+    item2.y = startY + spacing;
+    item2.width = itemWidth;
+    item2.height = itemHeight;
+    item2.isSubmenu = false;
+    item2.isExit = false;
+    menuItems.push_back(item2);
+
+    // 在线双人
+    MenuItem item3;
+    item3.text = L"在线双人";
+    item3.mode = NET_PVP;
+    item3.x = startX;
+    item3.y = startY + spacing * 2;
+    item3.width = itemWidth;
+    item3.height = itemHeight;
+    item3.isSubmenu = false;
+    item3.isExit = false;
     menuItems.push_back(item3);
 
-    // 进阶版
+    // 返回
     MenuItem item4;
-    item4.text = L"进阶版（蛇尸变墙）";
-    item4.mode = ADVANCED;
+    item4.text = L"返回";
+    item4.mode = SINGLE; // 不使用
     item4.x = startX;
     item4.y = startY + spacing * 3;
     item4.width = itemWidth;
     item4.height = itemHeight;
+    item4.isSubmenu = true; // 标记为特殊项
+    item4.isExit = false;
     menuItems.push_back(item4);
-
-    // 高级版
-    MenuItem item5;
-    item5.text = L"高级版（蛇尸变食物）";
-    item5.mode = EXPERT;
-    item5.x = startX;
-    item5.y = startY + spacing * 4;
-    item5.width = itemWidth;
-    item5.height = itemHeight;
-    menuItems.push_back(item5);
 }
 
 void MenuScene::Render()
@@ -155,10 +207,9 @@ void MenuScene::DrawMenuItem(const MenuItem &item, bool isSelected)
 
 void MenuScene::HandleMouseInput()
 {
-    if (MouseHit())
+    MOUSEMSG msg;
+    while (inputMgr.GetLatestMouseMessage(msg))
     {
-        MOUSEMSG msg = GetMouseMsg();
-
         // 检测鼠标移动
         if (msg.uMsg == WM_MOUSEMOVE)
         {
@@ -180,7 +231,33 @@ void MenuScene::HandleMouseInput()
                 if (IsMouseOver(menuItems[i], msg.x, msg.y))
                 {
                     selectedOption = static_cast<int>(i);
-                    menuRunning = false;
+                    MenuItem &item = menuItems[selectedOption];
+
+                    if (item.isExit)
+                    {
+                        exit(0);
+                    }
+                    else if (item.isSubmenu)
+                    {
+                        if (currentMenu == MAIN_MENU)
+                        {
+                            // 进入双人游戏子菜单
+                            currentMenu = MULTIPLAYER_MENU;
+                            InitMultiplayerMenu();
+                            selectedOption = 0;
+                        }
+                        else
+                        {
+                            // 返回主菜单
+                            currentMenu = MAIN_MENU;
+                            InitMainMenu();
+                            selectedOption = 0;
+                        }
+                    }
+                    else
+                    {
+                        menuRunning = false;
+                    }
                     break;
                 }
             }
@@ -190,56 +267,52 @@ void MenuScene::HandleMouseInput()
 
 void MenuScene::HandleKeyboardInput()
 {
-    // 上键
-    if (GetAsyncKeyState(VK_UP) & 0x8000)
+    // 上键 - 边沿触发（自动防抖）
+    if (inputMgr.IsKeyJustPressed(VK_UP))
     {
-        static bool upPressed = false;
-        if (!upPressed)
-        {
-            selectedOption = (int)((selectedOption - 1 + menuItems.size()) % menuItems.size());
-            upPressed = true;
-        }
-    }
-    else
-    {
-        static bool upPressed = false;
-        upPressed = false;
+        selectedOption = (int)((selectedOption - 1 + menuItems.size()) % menuItems.size());
     }
 
-    // 下键
-    if (GetAsyncKeyState(VK_DOWN) & 0x8000)
+    // 下键 - 边沿触发（自动防抖）
+    if (inputMgr.IsKeyJustPressed(VK_DOWN))
     {
-        static bool downPressed = false;
-        if (!downPressed)
-        {
-            selectedOption = (int)((selectedOption + 1) % menuItems.size());
-            downPressed = true;
-        }
-    }
-    else
-    {
-        static bool downPressed = false;
-        downPressed = false;
+        selectedOption = (int)((selectedOption + 1) % menuItems.size());
     }
 
-    // 回车键确认
-    if (GetAsyncKeyState(VK_RETURN) & 0x8000)
+    // 回车键确认 - 边沿触发（自动防抖）
+    if (inputMgr.IsKeyJustPressed(VK_RETURN))
     {
-        static bool enterPressed = false;
-        if (!enterPressed)
+        MenuItem &item = menuItems[selectedOption];
+
+        if (item.isExit)
+        {
+            exit(0);
+        }
+        else if (item.isSubmenu)
+        {
+            if (currentMenu == MAIN_MENU)
+            {
+                // 进入双人游戏子菜单
+                currentMenu = MULTIPLAYER_MENU;
+                InitMultiplayerMenu();
+                selectedOption = 0;
+            }
+            else
+            {
+                // 返回主菜单
+                currentMenu = MAIN_MENU;
+                InitMainMenu();
+                selectedOption = 0;
+            }
+        }
+        else
         {
             menuRunning = false;
-            enterPressed = true;
         }
     }
-    else
-    {
-        static bool enterPressed = false;
-        enterPressed = false;
-    }
 
-    // ESC退出程序
-    if (GetAsyncKeyState(VK_ESCAPE) & 0x8000)
+    // ESC退出程序 - 边沿触发（自动防抖）
+    if (inputMgr.IsKeyJustPressed(VK_ESCAPE))
     {
         exit(0);
     }
@@ -257,9 +330,9 @@ void MenuScene::DrawTitle()
     settextcolor(RGB(255, 215, 0));
     setbkmode(TRANSPARENT);
 
-    const wchar_t *title = L"🐍 贪吃蛇游戏";
+    const wchar_t *title = currentMenu == MAIN_MENU ? L"贪吃蛇游戏" : L"选择游戏模式";
     int textWidth = textwidth(title);
-    outtextxy((800 - textWidth) / 2, 50, title);
+    outtextxy((800 - textWidth) / 2, 80, title);
 }
 
 void MenuScene::DrawInstructions()
