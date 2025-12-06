@@ -32,6 +32,13 @@ bool Renderer::Init(int width, int height, const wchar_t *title, bool createWind
     setbkcolor(BLACK);
     cleardevice();
 
+    // 启用文字抗锯齿（ClearType），提升文字清晰度
+    LOGFONT f;
+    gettextstyle(&f);
+    f.lfQuality = CLEARTYPE_QUALITY;
+    wcscpy_s(f.lfFaceName, L"微软雅黑");
+    settextstyle(&f);
+
     windowWidth = width;
     windowHeight = height;
     initialized = true;
@@ -223,6 +230,62 @@ void Renderer::DrawGameOverScreen(int finalScore, bool isHighScore)
     {
         DrawTextCentered(L"★ 新纪录！★", windowHeight / 2, 28, YELLOW);
     }
+
+    // 绘制返回按钮
+    int buttonX = 300;
+    int buttonY = 400;
+    int buttonWidth = 200;
+    int buttonHeight = 50;
+
+    setfillcolor(RGB(70, 130, 180));
+    setlinecolor(RGB(100, 200, 255));
+    setlinestyle(PS_SOLID, 2);
+    fillrectangle(buttonX, buttonY, buttonX + buttonWidth, buttonY + buttonHeight);
+
+    // 按钮文字
+    settextstyle(24, 0, L"微软雅黑");
+    settextcolor(WHITE);
+    setbkmode(TRANSPARENT);
+    const wchar_t *btnText = L"返回菜单";
+    int textWidth = textwidth(btnText);
+    int textHeight = textheight(btnText);
+    int textX = buttonX + (buttonWidth - textWidth) / 2;
+    int textY = buttonY + (buttonHeight - textHeight) / 2;
+    outtextxy(textX, textY, btnText);
+
+    // 提示信息
+    DrawTextCentered(L"点击按钮或按回车/ESC返回", windowHeight / 2 + 150, 18, RGB(150, 150, 150));
+}
+
+void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int finalScore)
+{
+    // 半透明背景
+    if (playerWon)
+    {
+        setfillcolor(RGB(0, 50, 0)); // 绿色背景（胜利）
+    }
+    else
+    {
+        setfillcolor(RGB(50, 0, 0)); // 红色背景（失败）
+    }
+    solidrectangle(0, 0, windowWidth, windowHeight);
+
+    // 游戏结束标题
+    if (playerWon)
+    {
+        DrawTextCentered(L"★ 胜利！★", windowHeight / 2 - 120, 60, YELLOW);
+        DrawTextCentered(L"恭喜你赢得了对战！", windowHeight / 2 - 50, 32, GREEN);
+    }
+    else
+    {
+        DrawTextCentered(L"战败", windowHeight / 2 - 120, 60, RED);
+        DrawTextCentered(L"再接再厉，下次加油！", windowHeight / 2 - 50, 32, RGB(255, 150, 150));
+    }
+
+    // 最终得分
+    wchar_t scoreText[100];
+    swprintf_s(scoreText, L"你的得分: %d", finalScore);
+    DrawTextCentered(scoreText, windowHeight / 2 + 10, 28, WHITE);
 
     // 绘制返回按钮
     int buttonX = 300;

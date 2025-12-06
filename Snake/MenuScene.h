@@ -12,6 +12,7 @@ private:
     enum MenuType
     {
         MAIN_MENU,
+        SINGLEPLAYER_MENU,
         MULTIPLAYER_MENU
     };
 
@@ -58,6 +59,11 @@ private:
      * @brief 初始化主菜单项
      */
     void InitMainMenu();
+
+    /**
+     * @brief 初始化单人游戏子菜单
+     */
+    void InitSinglePlayerMenu();
 
     /**
      * @brief 初始化双人游戏子菜单

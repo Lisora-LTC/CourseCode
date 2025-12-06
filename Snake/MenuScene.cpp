@@ -74,15 +74,15 @@ void MenuScene::InitMainMenu()
     int itemHeight = 50;
     int spacing = 70;
 
-    // 单人游戏
+    // 单人游戏（进入子菜单）
     MenuItem item1;
     item1.text = L"单人游戏";
-    item1.mode = SINGLE;
+    item1.mode = SINGLE; // 默认值
     item1.x = startX;
     item1.y = startY;
     item1.width = itemWidth;
     item1.height = itemHeight;
-    item1.isSubmenu = false;
+    item1.isSubmenu = true; // 修改为进入子菜单
     item1.isExit = false;
     menuItems.push_back(item1);
 
@@ -109,6 +109,65 @@ void MenuScene::InitMainMenu()
     item3.isSubmenu = false;
     item3.isExit = true;
     menuItems.push_back(item3);
+}
+
+void MenuScene::InitSinglePlayerMenu()
+{
+    menuItems.clear();
+
+    int startX = 250;
+    int startY = 150;
+    int itemWidth = 300;
+    int itemHeight = 50;
+    int spacing = 70;
+
+    // 入门版
+    MenuItem item1;
+    item1.text = L"入门版";
+    item1.mode = BEGINNER;
+    item1.x = startX;
+    item1.y = startY;
+    item1.width = itemWidth;
+    item1.height = itemHeight;
+    item1.isSubmenu = false;
+    item1.isExit = false;
+    menuItems.push_back(item1);
+
+    // 进阶版
+    MenuItem item2;
+    item2.text = L"进阶版";
+    item2.mode = ADVANCED;
+    item2.x = startX;
+    item2.y = startY + spacing;
+    item2.width = itemWidth;
+    item2.height = itemHeight;
+    item2.isSubmenu = false;
+    item2.isExit = false;
+    menuItems.push_back(item2);
+
+    // 高级版
+    MenuItem item3;
+    item3.text = L"高级版";
+    item3.mode = EXPERT;
+    item3.x = startX;
+    item3.y = startY + spacing * 2;
+    item3.width = itemWidth;
+    item3.height = itemHeight;
+    item3.isSubmenu = false;
+    item3.isExit = false;
+    menuItems.push_back(item3);
+
+    // 返回
+    MenuItem item4;
+    item4.text = L"返回";
+    item4.mode = SINGLE; // 不使用
+    item4.x = startX;
+    item4.y = startY + spacing * 3;
+    item4.width = itemWidth;
+    item4.height = itemHeight;
+    item4.isSubmenu = false;
+    item4.isExit = true; // 标记为返回
+    menuItems.push_back(item4);
 }
 
 void MenuScene::InitMultiplayerMenu()
@@ -252,15 +311,34 @@ void MenuScene::HandleMouseInput()
 
                     if (item.isExit)
                     {
-                        exit(0);
+                        if (currentMenu == MAIN_MENU)
+                        {
+                            // 主菜单的“退出游戏”：直接退出程序
+                            exit(0);
+                        }
+                        else
+                        {
+                            // 子菜单的“返回”：返回主菜单
+                            currentMenu = MAIN_MENU;
+                            InitMainMenu();
+                            selectedOption = 0;
+                        }
                     }
                     else if (item.isSubmenu)
                     {
                         if (currentMenu == MAIN_MENU)
                         {
-                            // 进入双人游戏子菜单
-                            currentMenu = MULTIPLAYER_MENU;
-                            InitMultiplayerMenu();
+                            // 进入子菜单
+                            if (item.mode == SINGLE)
+                            {
+                                currentMenu = SINGLEPLAYER_MENU;
+                                InitSinglePlayerMenu();
+                            }
+                            else
+                            {
+                                currentMenu = MULTIPLAYER_MENU;
+                                InitMultiplayerMenu();
+                            }
                             selectedOption = 0;
                         }
                         else
@@ -303,15 +381,34 @@ void MenuScene::HandleKeyboardInput()
 
         if (item.isExit)
         {
-            exit(0);
+            if (currentMenu == MAIN_MENU)
+            {
+                // 主菜单的“退出游戏”：直接退出程序
+                exit(0);
+            }
+            else
+            {
+                // 子菜单的“返回”：返回主菜单
+                currentMenu = MAIN_MENU;
+                InitMainMenu();
+                selectedOption = 0;
+            }
         }
         else if (item.isSubmenu)
         {
             if (currentMenu == MAIN_MENU)
             {
-                // 进入双人游戏子菜单
-                currentMenu = MULTIPLAYER_MENU;
-                InitMultiplayerMenu();
+                // 进入子菜单
+                if (item.mode == SINGLE)
+                {
+                    currentMenu = SINGLEPLAYER_MENU;
+                    InitSinglePlayerMenu();
+                }
+                else
+                {
+                    currentMenu = MULTIPLAYER_MENU;
+                    InitMultiplayerMenu();
+                }
                 selectedOption = 0;
             }
             else
@@ -347,7 +444,14 @@ void MenuScene::DrawTitle()
     settextcolor(RGB(255, 215, 0));
     setbkmode(TRANSPARENT);
 
-    const wchar_t *title = currentMenu == MAIN_MENU ? L"贪吃蛇游戏" : L"选择游戏模式";
+    const wchar_t *title;
+    if (currentMenu == MAIN_MENU)
+        title = L"贪吃蛇游戏";
+    else if (currentMenu == SINGLEPLAYER_MENU)
+        title = L"选择单人模式";
+    else
+        title = L"选择双人模式";
+
     int textWidth = textwidth(title);
     outtextxy((800 - textWidth) / 2, 80, title);
 }

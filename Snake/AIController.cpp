@@ -1,12 +1,18 @@
 #include "AIController.h"
 #include "Snake.h"
 #include "GameMap.h"
+#include "FoodManager.h"
 #include <queue>
 #include <map>
 #include <algorithm>
+#include <cmath>
 
 // ============== 构造与析构 ==============
-AIController::AIController() : nextMove(NONE), hasPath(false), targetFood(-1, -1)
+AIController::AIController() : nextMove(NONE), hasPath(false), targetFood(-1, -1), foodManager(nullptr)
+{
+}
+
+AIController::AIController(FoodManager *foodMgr) : nextMove(NONE), hasPath(false), targetFood(-1, -1), foodManager(foodMgr)
 {
 }
 
@@ -15,11 +21,15 @@ AIController::~AIController()
     // 清理路径队列
     while (!path.empty())
         path.pop();
+    // 注意：不delete foodManager，生命周期由外部管理
+    foodManager = nullptr;
 }
 
 // ============== 实现接口方法 ==============
 Direction AIController::MakeDecision(const Snake &snake, const GameMap &map)
 {
+    Point head = snake.GetHead();
+
     // 1. 如果有预计算的路径且路径有效，返回路径的下一步
     if (!path.empty())
     {
@@ -27,7 +37,6 @@ Direction AIController::MakeDecision(const Snake &snake, const GameMap &map)
         path.pop();
 
         // 验证这个方向是否安全
-        Point head = snake.GetHead();
         Point nextPos = Utils::GetNextPoint(head, nextDir);
         if (IsSafePosition(nextPos, snake, map))
         {
@@ -43,9 +52,31 @@ Direction AIController::MakeDecision(const Snake &snake, const GameMap &map)
         }
     }
 
-    // 2. 尝试寻找到食物的路径
-    // 注意：这里需要从外部获取食物位置，暂时使用ChooseSafeDirection
-    // 实际使用时需要传入食物位置或通过map获取
+    // 2. 尝试寻找最近的食物并规划路径
+    if (foodManager)
+    {
+        Point nearestFood = FindNearestFood(head);
+
+        // 如果找到食物且不是当前目标，尝试规划新路径
+        if (nearestFood.x >= 0 && nearestFood.y >= 0)
+        {
+            // 如果目标食物改变或没有路径，重新规划
+            if (!hasPath || targetFood != nearestFood)
+            {
+                if (FindPathToFood(snake, map, nearestFood))
+                {
+                    // 成功找到路径，返回第一步
+                    if (!path.empty())
+                    {
+                        Direction nextDir = path.front();
+                        path.pop();
+                        nextMove = nextDir;
+                        return nextDir;
+                    }
+                }
+            }
+        }
+    }
 
     // 3. 如果无法到达食物或没有食物，选择最安全的方向
     Direction safeDir = ChooseSafeDirection(snake, map);
@@ -248,6 +279,32 @@ Direction AIController::ChooseSafeDirection(const Snake &snake, const GameMap &m
         return currentDir;
 
     return bestDir;
+}
+
+Point AIController::FindNearestFood(const Point &head)
+{
+    if (!foodManager)
+        return Point(-1, -1);
+
+    const std::vector<Food> &foods = foodManager->GetAllFoods();
+
+    if (foods.empty())
+        return Point(-1, -1);
+
+    Point nearest = foods[0].position;
+    int minDist = abs(head.x - nearest.x) + abs(head.y - nearest.y); // 曼哈顿距离
+
+    for (size_t i = 1; i < foods.size(); i++)
+    {
+        int dist = abs(head.x - foods[i].position.x) + abs(head.y - foods[i].position.y);
+        if (dist < minDist)
+        {
+            minDist = dist;
+            nearest = foods[i].position;
+        }
+    }
+
+    return nearest;
 }
 
 bool AIController::IsSafePosition(const Point &pos, const Snake &snake, const GameMap &map)

@@ -8,6 +8,9 @@
 // ============== 主函数 ==============
 int main()
 {
+    // 启用高DPI感知，防止Windows缩放导致画面模糊
+    SetProcessDPIAware();
+
     // 隐藏控制台窗口
     HWND hwnd = GetConsoleWindow();
     if (hwnd != NULL)

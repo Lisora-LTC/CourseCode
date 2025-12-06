@@ -192,6 +192,21 @@ private:
     void HandleSnakeDeath(Snake *snake);
 
     /**
+     * @brief 处理进阶版模式的蛇死亡（蛇尸变边界）
+     */
+    void HandleAdvancedModeDeath();
+
+    /**
+     * @brief 检查是否有足够空间生成新蛇和食物
+     */
+    bool HasEnoughSpace();
+
+    /**
+     * @brief 寻找一个空位置
+     */
+    Point FindEmptyPosition();
+
+    /**
      * @brief 获取模式字符串
      */
     std::string GetModeString(GameMode mode);

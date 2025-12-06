@@ -93,6 +93,7 @@ public:
      * @brief 绘制游戏结束界面
      */
     void DrawGameOverScreen(int finalScore, bool isHighScore);
+    void DrawMultiplayerGameOverScreen(bool playerWon, int finalScore);
 
     // ============== 工具方法 ==============
     /**

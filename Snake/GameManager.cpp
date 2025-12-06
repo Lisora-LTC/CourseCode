@@ -60,6 +60,61 @@ void GameManager::Run()
     isRunning = true;
     currentState = PLAYING;
 
+    // 多人模式显示倒计时（叠加在游戏界面上）
+    if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
+    {
+        // 先渲染一次游戏界面作为背景
+        Render();
+
+        for (int i = 3; i > 0; i--)
+        {
+            BeginBatchDraw();
+
+            // 重新渲染游戏界面
+            Render();
+
+            // 显示倒计时数字（白色大字，带阴影效果）
+            // 先绘制阴影
+            settextcolor(RGB(50, 50, 50));
+            settextstyle(120, 0, L"微软雅黑");
+            wchar_t countdownText[10];
+            swprintf_s(countdownText, L"%d", i);
+
+            int textWidth = textwidth(countdownText);
+            int textHeight = textheight(countdownText);
+            int x = (getwidth() - textWidth) / 2;
+            int y = (getheight() - textHeight) / 2;
+            outtextxy(x + 3, y + 3, countdownText); // 阴影
+
+            // 再绘制主文字
+            settextcolor(WHITE);
+            outtextxy(x, y, countdownText);
+
+            EndBatchDraw();
+            Sleep(1000);
+        }
+
+        // 显示"开始!"提示
+        BeginBatchDraw();
+        Render();
+
+        // 先绘制阴影
+        settextcolor(RGB(0, 100, 0));
+        settextstyle(100, 0, L"微软雅黑");
+        wchar_t startText[] = L"开始!";
+        int textWidth = textwidth(startText);
+        int textHeight = textheight(startText);
+        int x = (getwidth() - textWidth) / 2;
+        int y = (getheight() - textHeight) / 2;
+        outtextxy(x + 3, y + 3, startText); // 阴影
+
+        // 再绘制主文字
+        settextcolor(GREEN);
+        outtextxy(x, y, startText);
+        EndBatchDraw();
+        Sleep(500);
+    }
+
     DWORD lastUpdateTime = GetTickCount();
     DWORD lastRenderTime = GetTickCount();
     const DWORD updateInterval = GAME_SPEED; // 游戏逻辑更新：100ms (10 FPS)
@@ -190,12 +245,24 @@ void GameManager::GameOver()
     }
 
     // 显示游戏结束界面并等待用户选择
-    bool isNewHighScore = (score == highScore && score > 0);
     if (renderer)
     {
-        // 绘制游戏结束界面
         renderer->BeginBatch();
-        renderer->DrawGameOverScreen(score, isNewHighScore);
+
+        // 判断是否为多人游戏模式
+        if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
+        {
+            // 多人游戏：判断玩家是否胜利
+            bool playerWon = (playerSnake && playerSnake->IsAlive());
+            renderer->DrawMultiplayerGameOverScreen(playerWon, score);
+        }
+        else
+        {
+            // 单人游戏：显示常规结束画面
+            bool isNewHighScore = (score == highScore && score > 0);
+            renderer->DrawGameOverScreen(score, isNewHighScore);
+        }
+
         renderer->EndBatch();
     }
 
@@ -328,60 +395,121 @@ void GameManager::CacheGameInput()
 }
 void GameManager::CheckCollisions()
 {
-    if (!playerSnake || !playerSnake->IsAlive())
-        return;
-
-    Point head = playerSnake->GetHead();
-
-    // 1. 检测撞墙
-    WallType wallType = gameMap->GetWallType(head);
-    if (wallType != NO_WALL)
+    // 遍历所有蛇，检查每条蛇的碰撞
+    for (auto snake : snakes)
     {
-        if (wallType == HARD_WALL || wallType == BOUNDARY)
+        if (!snake || !snake->IsAlive())
+            continue;
+
+        Point head = snake->GetHead();
+
+        // 1. 检测撞墙
+        WallType wallType = gameMap->GetWallType(head);
+        if (wallType != NO_WALL)
         {
-            // 单人模式：撞墙直接死亡
-            if (currentMode == SINGLE || currentMode == BEGINNER)
+            if (wallType == HARD_WALL || wallType == BOUNDARY)
             {
-                playerSnake->SetAlive(false);
-                lives = 0; // 直接游戏结束
+                if (snake == playerSnake)
+                {
+                    // 玩家蛇撞墙，根据模式处理
+                    if (currentMode == BEGINNER)
+                    {
+                        // 入门版：撞墙直接死亡，游戏结束
+                        snake->SetAlive(false);
+                        lives = 0;
+                    }
+                    else if (currentMode == ADVANCED)
+                    {
+                        // 进阶版：蛇挂掉后蛇尸变边界，再生成新蛇
+                        HandleAdvancedModeDeath();
+                    }
+                    else if (currentMode == EXPERT)
+                    {
+                        // 高级版：蛇尸变食物
+                        // TODO: 实现高级版逻辑
+                        snake->SetAlive(false);
+                        lives = 0;
+                    }
+                    else
+                    {
+                        // 其他模式：原有逻辑
+                        snake->SetAlive(false);
+                        lives = 0;
+                    }
+                }
+                else
+                {
+                    // AI蛇或其他蛇撞墙，直接死亡
+                    HandleSnakeDeath(snake);
+                }
+            }
+            else if (wallType == SOFT_WALL)
+            {
+                // 软墙：移除墙壁
+                gameMap->RemoveWall(head);
+            }
+        }
+
+        // 2. 检测撞自己
+        if (snake->CheckSelfCollision())
+        {
+            if (snake == playerSnake)
+            {
+                // 玩家蛇撞自己，根据模式处理
+                if (currentMode == BEGINNER)
+                {
+                    // 入门版：撞自己直接结束
+                    snake->SetAlive(false);
+                    lives = 0;
+                }
+                else if (currentMode == ADVANCED)
+                {
+                    // 进阶版：蛇挂掉后蛇尸变边界
+                    HandleAdvancedModeDeath();
+                }
+                else if (currentMode == EXPERT)
+                {
+                    // 高级版：蛇尸变食物
+                    // TODO: 实现高级版逻辑
+                    snake->SetAlive(false);
+                    lives = 0;
+                }
+                else
+                {
+                    snake->SetAlive(false);
+                    lives = 0;
+                }
             }
             else
             {
-                // 多人/进阶模式：蛇长度减半
-                playerSnake->ShrinkByHalf();
-                wallCollisions++;
-
-                if (playerSnake->GetLength() < 2)
-                {
-                    playerSnake->SetAlive(false);
-                    lives--;
-                }
+                // AI蛇或其他蛇撞自己，直接死亡
+                HandleSnakeDeath(snake);
             }
         }
-        else if (wallType == SOFT_WALL)
-        {
-            // 软墙：移除墙壁
-            gameMap->RemoveWall(head);
-        }
     }
 
-    // 2. 检测撞自己
-    if (playerSnake->CheckSelfCollision())
-    {
-        playerSnake->SetAlive(false);
-        lives = 0; // 撞自己直接结束
-    }
-
-    // 3. 检测撞其他蛇（多蛇模式）
+    // 3. 检测所有蛇之间的碰撞（多蛇模式）
     if (snakes.size() > 1)
     {
-        for (size_t i = 1; i < snakes.size(); ++i)
+        for (size_t i = 0; i < snakes.size(); ++i)
         {
-            if (snakes[i] && snakes[i]->IsAlive())
+            if (!snakes[i] || !snakes[i]->IsAlive())
+                continue;
+
+            // 检查这条蛇是否撞到其他蛇
+            for (size_t j = 0; j < snakes.size(); ++j)
             {
-                if (playerSnake->CheckCollisionWith(*snakes[i]))
+                if (i == j) // 跳过自己
+                    continue;
+
+                if (!snakes[j] || !snakes[j]->IsAlive())
+                    continue;
+
+                // 检查snakes[i]的头是否撞到snakes[j]的身体
+                if (snakes[i]->CheckCollisionWith(*snakes[j]))
                 {
-                    HandleSnakeDeath(playerSnake);
+                    HandleSnakeDeath(snakes[i]);
+                    break; // 这条蛇已经死了，不需要继续检查
                 }
             }
         }
@@ -390,21 +518,37 @@ void GameManager::CheckCollisions()
 
 void GameManager::HandleFood()
 {
-    if (!playerSnake || !foodManager)
+    if (!foodManager)
         return;
 
-    Point head = playerSnake->GetHead();
-
-    if (foodManager->HasFoodAt(head))
+    // 遍历所有蛇，检查是否吃到食物
+    for (auto snake : snakes)
     {
-        int points = foodManager->ConsumeFood(head);
-        score += points;
-        playerSnake->Grow();
+        if (!snake || !snake->IsAlive())
+            continue;
 
-        if (foodManager->NeedMoreFood())
+        Point head = snake->GetHead();
+
+        if (foodManager->HasFoodAt(head))
         {
-            foodManager->SpawnFood(*playerSnake, *gameMap);
+            int points = foodManager->ConsumeFood(head);
+
+            // 只有玩家蛇的分数计入总分
+            if (snake == playerSnake)
+            {
+                score += points;
+            }
+
+            // 所有蛇都能生长
+            snake->Grow();
         }
+    }
+
+    // 检查是否需要生成更多食物
+    if (foodManager->NeedMoreFood() && !snakes.empty())
+    {
+        // 使用第一条蛇作为参考来生成食物（避免生成在蛇身上）
+        foodManager->SpawnFood(*snakes[0], *gameMap);
     }
 }
 
@@ -475,33 +619,69 @@ void GameManager::InitLocalPVPMode()
     // 创建地图
     gameMap = new GameMap();
 
-    // 创建两条蛇
+    // 创建两条蛇 - 背对背方向（都朝外）
     Point startPos1(MAP_WIDTH / 3, MAP_HEIGHT / 2);
-    Snake *snake1 = new Snake(0, startPos1, RIGHT, RGB(0, 255, 0));
-    snake1->SetController(new KeyboardController(0)); // WASD
+    Snake *snake1 = new Snake(0, startPos1, LEFT, RGB(0, 255, 0)); // 左侧蛇朝左（背离中心）
+    snake1->SetController(new KeyboardController(0));              // WASD
     snakes.push_back(snake1);
     playerSnake = snake1;
 
+    // 创建食物管理器（先创建，如果有AI需要引用）
+    foodManager = new FoodManager();
+
     Point startPos2(MAP_WIDTH * 2 / 3, MAP_HEIGHT / 2);
-    Snake *snake2 = new Snake(1, startPos2, LEFT, RGB(255, 255, 0));
-    snake2->SetController(new KeyboardController(1)); // 方向键
+    Snake *snake2 = new Snake(1, startPos2, RIGHT, RGB(255, 255, 0)); // 右侧蛇朝右（背离中心）
+    snake2->SetController(new KeyboardController(1));                 // 方向键
     snakes.push_back(snake2);
 
-    // 创建食物管理器
-    foodManager = new FoodManager();
+    // 生成初始食物
     foodManager->SpawnFood(*playerSnake, *gameMap);
+
+    // 初始化游戏状态
+    score = 0;
+    lives = 3;
+    gameTime = 0;
 }
 
 void GameManager::InitNetworkPVPMode()
 {
-    // 网络对战模式（暂不实现）
-    InitSingleMode();
+    // 网络对战模式（暂不实现，使用本地双人逻辑）
+    InitLocalPVPMode();
 }
 
 void GameManager::InitPVEMode()
 {
-    // 人机对战模式（暂不实现）
-    InitSingleMode();
+    // 创建渲染器（不创建窗口，由main管理）
+    renderer = new Renderer();
+    int totalWidth = MAP_WIDTH * BLOCK_SIZE + 200;
+    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇 - 人机对战", false);
+
+    // 创建地图
+    gameMap = new GameMap();
+
+    // 创建玩家蛇（键盘控制）
+    Point startPos1(MAP_WIDTH / 3, MAP_HEIGHT / 2);
+    Snake *snake1 = new Snake(0, startPos1, LEFT, RGB(0, 255, 0));
+    snake1->SetController(new KeyboardController(0)); // WASD
+    snakes.push_back(snake1);
+    playerSnake = snake1;
+
+    // 创建食物管理器（先创建，AI需要引用）
+    foodManager = new FoodManager();
+
+    // 创建AI蛇
+    Point startPos2(MAP_WIDTH * 2 / 3, MAP_HEIGHT / 2);
+    Snake *snake2 = new Snake(1, startPos2, RIGHT, RGB(255, 0, 255));
+    snake2->SetController(new AIController(foodManager)); // AI控制，传入食物管理器
+    snakes.push_back(snake2);
+
+    // 生成初始食物
+    foodManager->SpawnFood(*playerSnake, *gameMap);
+
+    // 初始化游戏状态
+    score = 0;
+    lives = 3;
+    gameTime = 0;
 }
 
 void GameManager::InitByGameMode(GameMode mode)
@@ -559,7 +739,34 @@ void GameManager::UpdateGameTime()
 
 bool GameManager::ShouldGameEnd()
 {
-    // 检查玩家蛇是否死亡
+    if (currentMode == ADVANCED)
+    {
+        // 进阶版：检查是否有足够空间
+        return !HasEnoughSpace();
+    }
+
+    // 多人游戏模式：检查是否只剩一条蛇活着
+    if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
+    {
+        int aliveCount = 0;
+        for (auto snake : snakes)
+        {
+            if (snake && snake->IsAlive())
+            {
+                aliveCount++;
+            }
+        }
+
+        // 如果只剩一条蛇或所有蛇都死了，游戏结束
+        if (aliveCount <= 1)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    // 单人模式：检查玩家蛇是否死亡
     if (playerSnake && !playerSnake->IsAlive())
     {
         return true;
@@ -572,6 +779,109 @@ bool GameManager::ShouldGameEnd()
     }
 
     return false;
+}
+
+void GameManager::HandleAdvancedModeDeath()
+{
+    if (!playerSnake || !gameMap || !foodManager)
+        return;
+
+    // 1. 将蛇身变为边界
+    const auto &body = playerSnake->GetBody();
+    for (const auto &segment : body)
+    {
+        gameMap->AddWall(segment, HARD_WALL);
+    }
+
+    // 2. 检查是否有足够空间生成新蛇
+    if (!HasEnoughSpace())
+    {
+        playerSnake->SetAlive(false);
+        lives = 0;
+        return;
+    }
+
+    // 3. 在随机空位生成新蛇
+    Point newPos = FindEmptyPosition();
+    Direction newDir = static_cast<Direction>(rand() % 4);
+    playerSnake->Reset(newPos, newDir);
+
+    // 4. 重新生成食物
+    foodManager->ClearAllFoods();
+    foodManager->SpawnFood(*playerSnake, *gameMap);
+
+    // 5. 增加分数（奖励继续游戏）
+    score += 10;
+}
+
+bool GameManager::HasEnoughSpace()
+{
+    if (!gameMap)
+        return false;
+
+    int emptyCount = 0;
+    for (int y = 0; y < MAP_HEIGHT; ++y)
+    {
+        for (int x = 0; x < MAP_WIDTH; ++x)
+        {
+            Point p(x, y);
+            if (gameMap->GetWallType(p) == NO_WALL)
+            {
+                emptyCount++;
+            }
+        }
+    }
+
+    // 至少需要 20 个空位（蛇的初始长度 + 食物 + 活动空间）
+    return emptyCount >= 20;
+}
+
+Point GameManager::FindEmptyPosition()
+{
+    if (!gameMap)
+        return Point(MAP_WIDTH / 2, MAP_HEIGHT / 2);
+
+    // 收集所有空位置
+    std::vector<Point> emptyPositions;
+    for (int y = 1; y < MAP_HEIGHT - 1; ++y)
+    {
+        for (int x = 1; x < MAP_WIDTH - 1; ++x)
+        {
+            Point p(x, y);
+            if (gameMap->GetWallType(p) == NO_WALL)
+            {
+                // 检查是否有蛇占据
+                bool occupied = false;
+                for (auto snake : snakes)
+                {
+                    if (snake && snake->IsAlive())
+                    {
+                        const auto &body = snake->GetBody();
+                        for (const auto &seg : body)
+                        {
+                            if (seg == p)
+                            {
+                                occupied = true;
+                                break;
+                            }
+                        }
+                        if (occupied)
+                            break;
+                    }
+                }
+
+                if (!occupied)
+                {
+                    emptyPositions.push_back(p);
+                }
+            }
+        }
+    }
+
+    if (emptyPositions.empty())
+        return Point(MAP_WIDTH / 2, MAP_HEIGHT / 2);
+
+    return emptyPositions[rand() % emptyPositions.size()];
 }
 
 void GameManager::HandleSnakeDeath(Snake *snake)
