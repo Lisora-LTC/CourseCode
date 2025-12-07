@@ -37,10 +37,10 @@ MenuScene::~MenuScene()
 // ============== 主方法 ==============
 GameMode MenuScene::Show()
 {
-    // 1. 初始化图形窗口（仅当管理窗口时）
+    // 1. 初始化图形窗口（仅当管理窗口时）- 使用1920x1080全屏
     if (manageWindow)
     {
-        initgraph(1920, 1080);
+        initgraph(WINDOW_WIDTH, WINDOW_HEIGHT); // 1920x1080
     }
 
     setbkcolor(RGB(249, 247, 247)); // #F9F7F7

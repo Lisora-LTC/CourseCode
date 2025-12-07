@@ -3,8 +3,10 @@
 #include "Snake.h"
 #include "GameMap.h"
 #include "FoodManager.h"
+#include "UIComponent.h"
 #include <graphics.h>
 #include <string>
+#include <memory>
 
 // ============== 渲染器类 ==============
 // 封装所有EasyX绘图操作
@@ -15,6 +17,9 @@ private:
     int windowHeight;
     bool initialized;
     bool ownsWindow; // 是否拥有窗口所有权
+
+    // UI组件
+    std::unique_ptr<UIButton> exitButton; // 退出按钮
 
 public:
     // ============== 构造与析构 ==============
@@ -75,14 +80,31 @@ public:
      * @param length 蛇长度
      * @param lives 剩余生命
      * @param time 游戏时间（秒）
+     * @param wallCollisions 撞墙次数（高级版用）
+     * @param mode 游戏模式
      */
-    void DrawUI(int score, int highScore, int length, int lives, int time);
+    void DrawUI(int score, int highScore, int length, int lives, int time, int wallCollisions = 0, GameMode mode = SINGLE);
+
+    /**
+     * @brief 绘制食物图例说明（旧版，单列布局）
+     */
+    void DrawFoodLegend(int startY);
+
+    /**
+     * @brief 绘制食物图例说明（新版，双列布局）
+     */
+    void DrawFoodLegendDualColumn();
 
     /**
      * @brief 获取退出按钮区域（用于点击检测）
      * @return 返回按钮的(x, y, width, height)
      */
     void GetExitButtonBounds(int &x, int &y, int &width, int &height) const;
+
+    /**
+     * @brief 获取退出按钮UI组件
+     */
+    UIButton *GetExitButton() { return exitButton.get(); }
 
     /**
      * @brief 绘制暂停界面

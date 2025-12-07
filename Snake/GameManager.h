@@ -203,6 +203,11 @@ private:
     void HandleAdvancedModeDeath();
 
     /**
+     * @brief 处理高级版模式的蛇死亡（蛇尸变食物）
+     */
+    void HandleExpertModeDeath();
+
+    /**
      * @brief 检查是否有足够空间生成新蛇和食物
      */
     bool HasEnoughSpace();

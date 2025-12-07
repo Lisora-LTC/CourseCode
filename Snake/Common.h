@@ -21,11 +21,23 @@
 #include <graphics.h> // EasyX 图形库
 
 // ============== 常量定义 ==============
-const int BLOCK_SIZE = 36;                         // 每个格子的像素大小 (1080p适配)
-const int MAP_WIDTH = 48;                          // 地图宽度（格子数）
-const int MAP_HEIGHT = 30;                         // 地图高度（格子数）调整为30填满屏幕
-const int WINDOW_WIDTH = MAP_WIDTH * BLOCK_SIZE;   // 窗口宽度 (1728)
-const int WINDOW_HEIGHT = MAP_HEIGHT * BLOCK_SIZE; // 窗口高度 (972)
+// 游戏区域配置（3/4屏幕面积，36px大格子）
+const int BLOCK_SIZE = 36;                            // 每个格子的像素大小 (36px)
+const int MAP_WIDTH = 38;                             // 地图宽度（格子数）38格
+const int MAP_HEIGHT = 28;                            // 地图高度（格子数）28格
+const int GAME_AREA_WIDTH = MAP_WIDTH * BLOCK_SIZE;   // 游戏区域宽度 (1368px)
+const int GAME_AREA_HEIGHT = MAP_HEIGHT * BLOCK_SIZE; // 游戏区域高度 (1008px)
+
+// 窗口布局配置（1920x1080全屏）
+const int GAME_AREA_X = 36;        // 游戏区左边距 (36px，留一个格子空隙)
+const int GAME_AREA_Y = 36;        // 游戏区上边距 (36px，留一个格子空隙)
+const int SIDEBAR_X = 1440;        // 侧边栏X坐标 (屏幕右侧1/4)
+const int SIDEBAR_Y = 0;           // 侧边栏Y坐标 (从顶部开始)
+const int SIDEBAR_WIDTH = 480;     // 侧边栏宽度 (480px，占屏幕1/4)
+const int SIDEBAR_HEIGHT = 1080;   // 侧边栏高度 (全屏高)
+const int SIDEBAR_CENTER_X = 1680; // 侧边栏中轴线 (1440 + 240)
+const int WINDOW_WIDTH = 1920;     // 窗口总宽度 (1920px)
+const int WINDOW_HEIGHT = 1080;    // 窗口总高度 (1080px)
 
 const int INITIAL_SNAKE_LENGTH = 3; // 蛇的初始长度
 const int GAME_SPEED = 100;         // 游戏速度（毫秒/帧）

@@ -233,16 +233,22 @@ void GameManager::GameOver()
     // 保存记录
     SaveGameRecord();
 
-    // 更新最高分
+    // 更新最高分（比较当前分数和历史最高分）
     if (score > highScore)
     {
         highScore = score;
+        // 写入文件保存最高分
         std::ofstream outFile("highscore.txt");
         if (outFile.is_open())
         {
             outFile << highScore;
             outFile.close();
         }
+    }
+    else
+    {
+        // 当前分数没有超过历史最高分，不更新文件
+        // highScore保持为加载的历史值
     }
 
     // 显示游戏结束界面并等待用户选择
@@ -355,7 +361,14 @@ void GameManager::Render()
 
     // 绘制UI
     int snakeLength = playerSnake ? playerSnake->GetLength() : 0;
-    renderer->DrawUI(score, highScore, snakeLength, lives, gameTime);
+
+    // 实时更新最高分（如果当前分数超过历史最高）
+    if (score > highScore)
+    {
+        highScore = score;
+    }
+
+    renderer->DrawUI(score, highScore, snakeLength, lives, gameTime, wallCollisions, currentMode);
 
     // 如果暂停，显示暂停界面
     if (isPaused)
@@ -447,10 +460,9 @@ void GameManager::CheckCollisions()
                     }
                     else if (currentMode == EXPERT)
                     {
-                        // 高级版：蛇尸变食物
-                        // TODO: 实现高级版逻辑
-                        snake->SetAlive(false);
-                        lives = 0;
+                        // 高级版：蛇尸变食物，撞墙次数+1
+                        wallCollisions++;
+                        HandleExpertModeDeath();
                     }
                     else
                     {
@@ -491,10 +503,9 @@ void GameManager::CheckCollisions()
                 }
                 else if (currentMode == EXPERT)
                 {
-                    // 高级版：蛇尸变食物
-                    // TODO: 实现高级版逻辑
-                    snake->SetAlive(false);
-                    lives = 0;
+                    // 高级版：蛇尸变食物，撞墙次数+1
+                    wallCollisions++;
+                    HandleExpertModeDeath();
                 }
                 else
                 {
@@ -570,7 +581,18 @@ void GameManager::HandleFood()
     if (foodManager->NeedMoreFood() && !snakes.empty())
     {
         // 使用第一条蛇作为参考来生成食物（避免生成在蛇身上）
-        foodManager->SpawnFood(*snakes[0], *gameMap);
+        // 多人模式生成更多食物（1.5倍）
+        if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
+        {
+            // 生成更多食物（1-5个的基础上再额外生成1-3个）
+            foodManager->SpawnFood(*snakes[0], *gameMap);
+            int extraCount = Utils::RandomInt(1, 3);
+            foodManager->SpawnFoodCount(extraCount, *snakes[0], *gameMap);
+        }
+        else
+        {
+            foodManager->SpawnFood(*snakes[0], *gameMap);
+        }
     }
 }
 
@@ -630,6 +652,7 @@ void GameManager::InitSingleMode()
     score = 0;
     lives = 3;
     gameTime = 0;
+    wallCollisions = 0; // 重置撞墙次数
 }
 
 void GameManager::InitLocalPVPMode()
@@ -658,13 +681,16 @@ void GameManager::InitLocalPVPMode()
     snake2->SetController(new KeyboardController(1));                 // 方向键
     snakes.push_back(snake2);
 
-    // 生成初始食物
+    // 生成初始食物（多人模式1.5倍）
     foodManager->SpawnFood(*playerSnake, *gameMap);
+    int extraCount = Utils::RandomInt(1, 3);
+    foodManager->SpawnFoodCount(extraCount, *playerSnake, *gameMap);
 
     // 初始化游戏状态
     score = 0;
     lives = 3;
     gameTime = 0;
+    wallCollisions = 0;
     player1Score = 0;
     player2Score = 0;
     player1Time = 0;
@@ -700,13 +726,16 @@ void GameManager::InitPVEMode()
     snake2->SetController(aiController);
     snakes.push_back(snake2);
 
-    // 生成初始食物
+    // 生成初始食物（多人模式1.5倍）
     foodManager->SpawnFood(*playerSnake, *gameMap);
+    int extraCount = Utils::RandomInt(1, 3);
+    foodManager->SpawnFoodCount(extraCount, *playerSnake, *gameMap);
 
     // 初始化游戏状态
     score = 0;
     lives = 3;
     gameTime = 0;
+    wallCollisions = 0;
     player1Score = 0;
     player2Score = 0;
     player1Time = 0;
@@ -780,6 +809,12 @@ bool GameManager::ShouldGameEnd()
         return !HasEnoughSpace();
     }
 
+    if (currentMode == EXPERT)
+    {
+        // 高级版：撞墙次数>5 或 空间不足
+        return (wallCollisions > 5) || !HasEnoughSpace();
+    }
+
     // 多人游戏模式：检查是否只剩一条蛇活着
     if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
     {
@@ -847,6 +882,57 @@ void GameManager::HandleAdvancedModeDeath()
 
     // 5. 增加分数（奖励继续游戏）
     score += 10;
+}
+
+void GameManager::HandleExpertModeDeath()
+{
+    if (!playerSnake || !gameMap || !foodManager)
+        return;
+
+    // 1. 将蛇身变为食物（不同类型食物）
+    const auto &body = playerSnake->GetBody();
+    for (size_t i = 0; i < body.size(); ++i)
+    {
+        const Point &segment = body[i];
+
+        // 蛇头变成加分食物
+        if (i == 0)
+        {
+            foodManager->SpawnFoodAt(segment, BONUS_FOOD);
+        }
+        // 其他部分变成普通食物
+        else
+        {
+            foodManager->SpawnFoodAt(segment, NORMAL_FOOD);
+        }
+    }
+
+    // 2. 检查是否有足够空间生成新蛇（高级版需要更多空间）
+    if (!HasEnoughSpace())
+    {
+        playerSnake->SetAlive(false);
+        lives = 0;
+        return;
+    }
+
+    // 3. 检查撞墙次数是否超过5次
+    if (wallCollisions > 5)
+    {
+        playerSnake->SetAlive(false);
+        lives = 0;
+        return;
+    }
+
+    // 4. 在随机空位生成新蛇
+    Point newPos = FindEmptyPosition();
+    Direction newDir = static_cast<Direction>(rand() % 4);
+    playerSnake->Reset(newPos, newDir);
+
+    // 5. 生成新的随机食物
+    foodManager->SpawnFood(*playerSnake, *gameMap);
+
+    // 6. 增加分数（奖励继续游戏，但比进阶版少）
+    score += 5;
 }
 
 bool GameManager::HasEnoughSpace()

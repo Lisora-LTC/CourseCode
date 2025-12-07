@@ -4,6 +4,8 @@
 // ============== 构造与析构 ==============
 Renderer::Renderer() : windowWidth(0), windowHeight(0), initialized(false), ownsWindow(false)
 {
+    // 初始化退出按钮（位置和大小在Init后设置）
+    exitButton = nullptr;
 }
 
 Renderer::~Renderer()
@@ -42,6 +44,20 @@ bool Renderer::Init(int width, int height, const wchar_t *title, bool createWind
     windowWidth = width;
     windowHeight = height;
     initialized = true;
+
+    // 初始化退出按钮（底部Y:960，320x80胶囊按钮，主菜单同款）
+    int buttonWidth = 320;
+    int buttonHeight = 80;
+    int buttonX = SIDEBAR_CENTER_X - buttonWidth / 2; // 侧边栏中轴线居中 (1680-160=1520)
+    int buttonY = 960;
+
+    exitButton = std::make_unique<UIButton>(buttonX, buttonY, buttonWidth, buttonHeight, L"退出游戏", BUTTON_CAPSULE);
+    // 主菜单同款：实心亮蓝 #3F72AF，悬停变亮 #5584BC
+    exitButton->SetColors(RGB(63, 114, 175), RGB(85, 132, 188), RGB(17, 45, 78)); // #3F72AF -> #5584BC -> #112D4E
+    exitButton->SetTextColor(RGB(249, 247, 247), RGB(255, 255, 255));             // #F9F7F7 纯白
+    exitButton->SetFontSize(32);                                                  // 32px粗体（微软雅黑Bold）
+    exitButton->SetShadow(false, 0);                                              // 去黑边，无描边
+
     return true;
 }
 
@@ -108,21 +124,25 @@ void Renderer::DrawMap(const GameMap &map)
     setfillcolor(wallColor);
     setlinecolor(wallColor);
 
-    int borderThickness = BLOCK_SIZE; // 边框厚度
-    int mapWidth = MAP_WIDTH * BLOCK_SIZE;
-    int mapHeight = MAP_HEIGHT * BLOCK_SIZE;
+    int borderThickness = BLOCK_SIZE;        // 边框厚度 36px
+    int mapWidth = MAP_WIDTH * BLOCK_SIZE;   // 1368px
+    int mapHeight = MAP_HEIGHT * BLOCK_SIZE; // 1008px
 
-    // 上边框
-    solidrectangle(0, 0, mapWidth, borderThickness);
+    // 上边框 (加上GAME_AREA_X/Y偏移)
+    solidrectangle(GAME_AREA_X, GAME_AREA_Y,
+                   GAME_AREA_X + mapWidth, GAME_AREA_Y + borderThickness);
 
     // 下边框
-    solidrectangle(0, mapHeight - borderThickness, mapWidth, mapHeight);
+    solidrectangle(GAME_AREA_X, GAME_AREA_Y + mapHeight - borderThickness,
+                   GAME_AREA_X + mapWidth, GAME_AREA_Y + mapHeight);
 
     // 左边框
-    solidrectangle(0, 0, borderThickness, mapHeight);
+    solidrectangle(GAME_AREA_X, GAME_AREA_Y,
+                   GAME_AREA_X + borderThickness, GAME_AREA_Y + mapHeight);
 
     // 右边框
-    solidrectangle(mapWidth - borderThickness, 0, mapWidth, mapHeight);
+    solidrectangle(GAME_AREA_X + mapWidth - borderThickness, GAME_AREA_Y,
+                   GAME_AREA_X + mapWidth, GAME_AREA_Y + mapHeight);
 }
 
 void Renderer::DrawFood(const Food &food)
@@ -159,160 +179,134 @@ void Renderer::DrawFoods(const FoodManager &foodMgr)
 }
 
 // ============== UI绘制 ==============
-void Renderer::DrawUI(int score, int highScore, int length, int lives, int time)
+void Renderer::DrawUI(int score, int highScore, int length, int lives, int time, int wallCollisions, GameMode mode)
 {
-    // 绘制分割线（游戏区域和侧边栏之间）
-    int dividerX = MAP_WIDTH * BLOCK_SIZE;
-    setlinecolor(RGB(219, 226, 239)); // #DBE2EF 灰蓝色分割线
-    setlinestyle(PS_SOLID, 3);        // 3px宽度
-    line(dividerX, 0, dividerX, windowHeight);
+    // ========== 1. 绘制游戏区边框 (#112D4E深藏青色) ==========
+    setlinecolor(RGB(17, 45, 78)); // #112D4E 深藏青
+    setlinestyle(PS_SOLID, 3);     // 3px宽度
+    rectangle(GAME_AREA_X, GAME_AREA_Y,
+              GAME_AREA_X + GAME_AREA_WIDTH,
+              GAME_AREA_Y + GAME_AREA_HEIGHT);
 
-    // 侧边栏左对齐基准位置
-    int uiX = dividerX + 50; // 距离分割线50px
-    int startY = 180;
-    int lineHeight = 80; // 增加行间距
+    // ========== 2. 绘制侧边栏背景 (#DBE2EF灰蓝色铺满) ==========
+    setfillcolor(RGB(219, 226, 239)); // #DBE2EF 灰蓝
+    setlinecolor(RGB(219, 226, 239));
+    setlinestyle(PS_SOLID, 1);
+    solidrectangle(SIDEBAR_X, 0, 1920, 1080); // 铺满右侧1/4
 
-    // 绘制玩家颜色标记（顶部）
-    settextstyle(24, 0, L"微软雅黑");
-    settextcolor(RGB(63, 114, 175)); // #3F72AF 标题颜色
     setbkmode(TRANSPARENT);
-    outtextxy(uiX, 40, L"玩家标记");
 
-    // P1圆形标记（改为圆形，和蛇一样）
-    int markerY1 = 80;
-    setfillcolor(RGB(63, 114, 175)); // #3F72AF
+    // 判断是否为多人对战模式
+    bool isMultiplayerMode = (mode == LOCAL_PVP || mode == NET_PVP || mode == PVE);
+
+    // =========================
+    // 第一部分：对战信息 (Y: 60-200)
+    // =========================
+
+    // 汉字标题："对战信息" 居中
+    LOGFONT titleFont;
+    gettextstyle(&titleFont);
+    titleFont.lfHeight = 32;
+    titleFont.lfWeight = FW_BOLD;
+    wcscpy_s(titleFont.lfFaceName, L"微软雅黑");
+    titleFont.lfQuality = ANTIALIASED_QUALITY;
+    settextstyle(&titleFont);
+    settextcolor(RGB(63, 114, 175)); // #3F72AF 亮蓝
+
+    const wchar_t *statusTitle = L"对战信息";
+    int titleWidth = textwidth(statusTitle);
+    outtextxy(SIDEBAR_CENTER_X - titleWidth / 2, 80, statusTitle);
+
+    // 玩家图标：左侧P1(你)，右侧CPU(机)
+    int iconY = 140;
+    int iconSize = 30;
+
+    // 左侧 🟦 P1 (你) - x: 1580
+    int p1X = 1580;
+    setfillcolor(RGB(63, 114, 175)); // #3F72AF 蓝色
     setlinecolor(RGB(63, 114, 175));
-    solidcircle(uiX + 15, markerY1 + 15, 15); // 圆形标记
+    solidrectangle(p1X, iconY, p1X + iconSize, iconY + iconSize);
+
     settextstyle(24, 0, L"微软雅黑");
-    settextcolor(RGB(17, 45, 78)); // #112D4E
-    outtextxy(uiX + 40, markerY1 + 5, L"P1 (你)");
+    settextcolor(RGB(17, 45, 78)); // #112D4E 深藏青
+    outtextxy(p1X + 40, iconY + 5, L"P1 (你)");
 
-    // P2圆形标记
-    int markerY2 = 120;
-    setfillcolor(RGB(224, 133, 133)); // #E08585 莫兰迪粉
+    // 右侧 🟥 CPU (机) - x: 1780
+    int p2X = 1780;
+    setfillcolor(RGB(224, 133, 133)); // #E08585 粉红色
     setlinecolor(RGB(224, 133, 133));
-    solidcircle(uiX + 15, markerY2 + 15, 15);
-    outtextxy(uiX + 40, markerY2 + 5, L"P2");
+    solidrectangle(p2X, iconY, p2X + iconSize, iconY + iconSize);
 
-    // 绘制统计信息（左对齐，标签+数值分层）
+    const wchar_t *p2Label = (mode == PVE) ? L"CPU (机)" : L"P2";
+    outtextxy(p2X + 40, iconY + 5, p2Label);
+
+    // =========================
+    // 第二部分：核心数据 (Y: 250-550)
+    // =========================
+
     wchar_t buffer[100];
-    LOGFONT labelFont, valueFont;
+    LOGFONT scoreFont, timeFont, labelFont;
 
-    // 标签字体（小号，浅色）
+    // 汉字标题："当前得分" (Y: 280)
     gettextstyle(&labelFont);
     labelFont.lfHeight = 24;
     labelFont.lfWeight = FW_NORMAL;
     wcscpy_s(labelFont.lfFaceName, L"微软雅黑");
     labelFont.lfQuality = ANTIALIASED_QUALITY;
-
-    // 数值字体（大号，深色，加粗）
-    gettextstyle(&valueFont);
-    valueFont.lfHeight = 40;
-    valueFont.lfWeight = FW_BOLD;
-    wcscpy_s(valueFont.lfFaceName, L"微软雅黑");
-    valueFont.lfQuality = ANTIALIASED_QUALITY;
-
-    int currentY = startY;
-
-    // 得分
     settextstyle(&labelFont);
-    settextcolor(RGB(63, 114, 175)); // #3F72AF 标签颜色
-    outtextxy(uiX, currentY, L"得分");
-    settextstyle(&valueFont);
-    settextcolor(RGB(17, 45, 78)); // #112D4E 数值颜色
+    settextcolor(RGB(63, 114, 175)); // #3F72AF 亮蓝
+
+    const wchar_t *scoreTitle = L"当前得分";
+    int scoreTitleWidth = textwidth(scoreTitle);
+    outtextxy(SIDEBAR_CENTER_X - scoreTitleWidth / 2, 280, scoreTitle);
+
+    // 得分数值：150 (100px Arial Black, Y: 380)
+    gettextstyle(&scoreFont);
+    scoreFont.lfHeight = 100;
+    scoreFont.lfWeight = FW_BOLD;
+    wcscpy_s(scoreFont.lfFaceName, L"Arial Black");
+    scoreFont.lfQuality = ANTIALIASED_QUALITY;
+    settextstyle(&scoreFont);
+    settextcolor(RGB(17, 45, 78)); // #112D4E 深藏青
+
     swprintf_s(buffer, L"%d", score);
-    outtextxy(uiX, currentY + 28, buffer);
-    currentY += lineHeight;
+    int scoreWidth = textwidth(buffer);
+    outtextxy(SIDEBAR_CENTER_X - scoreWidth / 2, 330, buffer);
 
-    // 最高分
+    // 汉字标题："游戏时间" (Y: 460)
     settextstyle(&labelFont);
     settextcolor(RGB(63, 114, 175));
-    outtextxy(uiX, currentY, L"最高分");
-    settextstyle(&valueFont);
-    settextcolor(RGB(17, 45, 78));
-    swprintf_s(buffer, L"%d", highScore);
-    outtextxy(uiX, currentY + 28, buffer);
-    currentY += lineHeight;
+    const wchar_t *timeTitle = L"游戏时间";
+    int timeTitleWidth = textwidth(timeTitle);
+    outtextxy(SIDEBAR_CENTER_X - timeTitleWidth / 2, 460, timeTitle);
 
-    // 长度
-    settextstyle(&labelFont);
-    settextcolor(RGB(63, 114, 175));
-    outtextxy(uiX, currentY, L"长度");
-    settextstyle(&valueFont);
+    // 时间数值：02:14 (48px, Y: 520)
+    gettextstyle(&timeFont);
+    timeFont.lfHeight = 48;
+    timeFont.lfWeight = FW_BOLD;
+    wcscpy_s(timeFont.lfFaceName, L"Arial Black");
+    timeFont.lfQuality = ANTIALIASED_QUALITY;
+    settextstyle(&timeFont);
     settextcolor(RGB(17, 45, 78));
-    swprintf_s(buffer, L"%d", length);
-    outtextxy(uiX, currentY + 28, buffer);
-    currentY += lineHeight;
 
-    // 生命
-    settextstyle(&labelFont);
-    settextcolor(RGB(63, 114, 175));
-    outtextxy(uiX, currentY, L"生命");
-    settextstyle(&valueFont);
-    settextcolor(RGB(17, 45, 78));
-    swprintf_s(buffer, L"%d", lives);
-    outtextxy(uiX, currentY + 28, buffer);
-    currentY += lineHeight;
-
-    // 时间
-    settextstyle(&labelFont);
-    settextcolor(RGB(63, 114, 175));
-    outtextxy(uiX, currentY, L"时间");
-    settextstyle(&valueFont);
-    settextcolor(RGB(17, 45, 78));
     int minutes = time / 60;
     int seconds = time % 60;
     swprintf_s(buffer, L"%02d:%02d", minutes, seconds);
-    outtextxy(uiX, currentY + 28, buffer);
+    int timeWidth = textwidth(buffer);
+    outtextxy(SIDEBAR_CENTER_X - timeWidth / 2, 510, buffer);
 
-    // 绘制退出按钮（缩小，上移，留出底部边距）
-    int sidebarWidth = windowWidth - dividerX;
-    int buttonWidth = (int)(sidebarWidth * 0.7); // 侧边栏宽度的70%
-    int buttonHeight = 70;
-    int buttonX = dividerX + (sidebarWidth - buttonWidth) / 2; // 居中
-    int buttonY = windowHeight - 150;                          // 留出底部边距
+    // =========================
+    // 第三块：食物图例 (Y: 650-850) - 双列布局
+    // =========================
+    DrawFoodLegendDualColumn();
 
-    // 使用空心描边样式（浅色背景）
-    COLORREF btnBgColor = RGB(249, 247, 247);     // #F9F7F7 浅色背景
-    COLORREF btnBorderColor = RGB(219, 226, 239); // #DBE2EF 边框
-
-    setfillcolor(btnBgColor);
-    setlinecolor(btnBorderColor);
-    setlinestyle(PS_SOLID, 2);
-    int radius = buttonHeight / 2;
-
-    // 绘制空心胶囊按钮（先填充，再绘边框）
-    setfillcolor(btnBgColor);
-    setlinecolor(btnBorderColor);
-    setlinestyle(PS_SOLID, 2);
-
-    // 填充背景
-    solidcircle(buttonX + radius, buttonY + radius, radius);
-    solidcircle(buttonX + buttonWidth - radius, buttonY + radius, radius);
-    solidrectangle(buttonX + radius, buttonY, buttonX + buttonWidth - radius, buttonY + buttonHeight);
-
-    // 绘制边框（在填充之后）
-    circle(buttonX + radius, buttonY + radius, radius);
-    circle(buttonX + buttonWidth - radius, buttonY + radius, radius);
-    line(buttonX + radius, buttonY, buttonX + buttonWidth - radius, buttonY);
-    line(buttonX + radius, buttonY + buttonHeight, buttonX + buttonWidth - radius, buttonY + buttonHeight);
-
-    // 按钮文字
-    LOGFONT f;
-    gettextstyle(&f);
-    f.lfHeight = 28;
-    f.lfWeight = FW_BOLD;
-    wcscpy_s(f.lfFaceName, L"微软雅黑");
-    f.lfQuality = ANTIALIASED_QUALITY;
-    settextstyle(&f);
-    settextcolor(RGB(63, 114, 175)); // #3F72AF 蓝色文字
-    setbkmode(TRANSPARENT);
-    const wchar_t *btnText = L"退出游戏";
-    int textWidth = textwidth(btnText);
-    int textHeight = textheight(btnText);
-    int textX = buttonX + (buttonWidth - textWidth) / 2;
-    int textY = buttonY + (buttonHeight - textHeight) / 2;
-    outtextxy(textX, textY, btnText);
+    // =========================
+    // 第四块：退出按钮 (Y: 900) - 360x80大胶囊
+    // =========================
+    if (exitButton)
+    {
+        exitButton->Draw();
+    }
 }
 
 void Renderer::DrawPauseScreen()
@@ -509,12 +503,12 @@ void Renderer::DrawRect(int x, int y, int width, int height, COLORREF color, boo
 // ============== 私有方法 ==============
 int Renderer::GridToPixelX(int gridX) const
 {
-    return gridX * BLOCK_SIZE;
+    return GAME_AREA_X + gridX * BLOCK_SIZE; // 加上左侧偏移
 }
 
 int Renderer::GridToPixelY(int gridY) const
 {
-    return gridY * BLOCK_SIZE;
+    return GAME_AREA_Y + gridY * BLOCK_SIZE; // 加上顶部偏移
 }
 
 COLORREF Renderer::GetFoodColor(FoodType type) const
@@ -522,19 +516,19 @@ COLORREF Renderer::GetFoodColor(FoodType type) const
     switch (type)
     {
     case NORMAL_FOOD:
-        return RGB(249, 168, 37); // #F9A825 金黄色
+        return RGB(247, 197, 72); // #F7C548 金黄色
     case BONUS_FOOD:
-        return RGB(249, 168, 37); // #F9A825
+        return RGB(255, 107, 107); // #FF6B6B 珊瑚粉
     case MAGIC_FRUIT:
-        return RGB(63, 114, 175); // #3F72AF 亮蓝
+        return RGB(54, 209, 220); // #36D1DC 青碧色
     case POISON_FRUIT:
-        return RGB(219, 226, 239); // #DBE2EF 灰蓝
+        return RGB(74, 105, 133); // #4A6985 深灰蓝（石头色）
     case SPEED_UP:
-        return RGB(63, 114, 175); // #3F72AF
+        return RGB(63, 114, 175); // #3F72AF 保持不变
     case SPEED_DOWN:
-        return RGB(219, 226, 239); // #DBE2EF
+        return RGB(219, 226, 239); // #DBE2EF 保持不变
     default:
-        return RGB(249, 168, 37);
+        return RGB(247, 197, 72);
     }
 }
 
@@ -619,11 +613,23 @@ void Renderer::DrawBlockWithShadow(int gridX, int gridY, COLORREF color, bool fi
 
 void Renderer::GetExitButtonBounds(int &x, int &y, int &width, int &height) const
 {
-    int uiX = MAP_WIDTH * BLOCK_SIZE + 36;
-    x = uiX;
-    y = 1080 - 120; // 使用1080高度计算
-    width = 270;    // 放大1.8倍
-    height = 90;    // 放大1.8倍
+    if (exitButton)
+    {
+        x = exitButton->GetX();
+        y = exitButton->GetY();
+        width = exitButton->GetWidth();
+        height = exitButton->GetHeight();
+    }
+    else
+    {
+        // 默认值（兼容）
+        int dividerX = MAP_WIDTH * BLOCK_SIZE;
+        int sidebarWidth = windowWidth - dividerX;
+        width = (int)(sidebarWidth * 0.7);
+        height = 70;
+        x = dividerX + (sidebarWidth - width) / 2;
+        y = windowHeight - 150;
+    }
 }
 
 // ============== 新增工具方法实现 ==============
@@ -683,4 +689,148 @@ bool Renderer::IsMouseInRect(int mouseX, int mouseY, int x, int y, int width, in
 {
     return mouseX >= x && mouseX <= x + width &&
            mouseY >= y && mouseY <= y + height;
+}
+
+// ============== 食物图例绘制 ==============
+void Renderer::DrawFoodLegend(int startY)
+{
+    int dividerX = MAP_WIDTH * BLOCK_SIZE;
+    int uiX = dividerX + 60;
+    int currentY = startY;
+    int itemHeight = 60;
+    int iconSize = 28;
+    int padding = 20;
+
+    // 计算背景矩形尺寸
+    int bgX = uiX - padding;
+    int bgY = currentY - padding;
+    int bgWidth = (windowWidth - dividerX) - 80;         // 留出右侧边距
+    int bgHeight = 50 + 50 + (itemHeight * 5) + padding; // 标题+间距+5个食物项+底部边距
+
+    // 绘制白色圆角矩形背景
+    setfillcolor(RGB(255, 255, 255)); // 白色
+    setlinecolor(RGB(219, 226, 239)); // #DBE2EF 浅边框
+    setlinestyle(PS_SOLID, 2);
+    fillroundrect(bgX, bgY, bgX + bgWidth, bgY + bgHeight, 20, 20);
+
+    // 标题
+    settextstyle(32, 0, L"微软雅黑");
+    settextcolor(RGB(63, 114, 175)); // #3F72AF
+    setbkmode(TRANSPARENT);
+    outtextxy(uiX, currentY, L"食物图例");
+    currentY += 50;
+
+    // 设置字体
+    settextstyle(24, 0, L"微软雅黑");
+
+    // 定义食物类型、颜色和说明
+    struct FoodLegendItem
+    {
+        COLORREF color;
+        const wchar_t *name;
+        const wchar_t *desc;
+    };
+
+    FoodLegendItem items[] = {
+        {RGB(247, 197, 72), L"普通", L"+10分"},        // #F7C548 金黄色
+        {RGB(255, 107, 107), L"加分", L"+20分"},       // #FF6B6B 珊瑚粉
+        {RGB(54, 209, 220), L"精灵果", L"+50分"},      // #36D1DC 青碧色
+        {RGB(74, 105, 133), L"恶果", L"-100分"},       // #4A6985 深灰蓝
+        {RGB(219, 226, 239), L"变大果", L"+2格-10分"}, // #DBE2EF 灰蓝
+    };
+
+    for (const auto &item : items)
+    {
+        // 绘制食物图标（圆点）
+        setfillcolor(item.color);
+        setlinecolor(item.color);
+        solidcircle(uiX + 14, currentY + 14, iconSize / 2);
+
+        // 绘制食物名称
+        settextcolor(RGB(17, 45, 78)); // #112D4E
+        outtextxy(uiX + 45, currentY + 2, item.name);
+
+        // 绘制说明（右侧）
+        settextcolor(RGB(63, 114, 175)); // 浅色
+        int nameWidth = textwidth(item.name);
+        outtextxy(uiX + 45 + nameWidth + 15, currentY + 2, item.desc);
+
+        currentY += itemHeight;
+    }
+}
+
+// ============== 食物图例绘制（双列布局）==============
+void Renderer::DrawFoodLegendDualColumn()
+{
+    // =========================
+    // 第三部分：食物图例 (Y: 600-850)
+    // =========================
+
+    // 汉字标题："食物图例" (Y: 620)
+    LOGFONT titleFont;
+    gettextstyle(&titleFont);
+    titleFont.lfHeight = 24;
+    titleFont.lfWeight = FW_NORMAL;
+    wcscpy_s(titleFont.lfFaceName, L"微软雅黑");
+    titleFont.lfQuality = ANTIALIASED_QUALITY;
+    settextstyle(&titleFont);
+    settextcolor(RGB(63, 114, 175)); // #3F72AF 亮蓝
+    setbkmode(TRANSPARENT);
+
+    const wchar_t *legendTitle = L"食物图例";
+    int legendTitleWidth = textwidth(legendTitle);
+    outtextxy(SIDEBAR_CENTER_X - legendTitleWidth / 2, 620, legendTitle);
+
+    // 定义食物项 (5项)
+    struct FoodItem
+    {
+        COLORREF color;
+        const wchar_t *name;
+    };
+
+    FoodItem foods[] = {
+        {RGB(247, 197, 72), L"普通"},  // #F7C548 金黄色
+        {RGB(255, 107, 107), L"加速"}, // #FF6B6B 红色
+        {RGB(74, 105, 133), L"恶果"},  // #4A6985 深灰蓝
+        {RGB(219, 226, 239), L"变大"}, // #DBE2EF 灰蓝
+        {RGB(54, 209, 220), L"精灵"},  // #36D1DC 青碧色
+    };
+
+    // 双列布局基准坐标
+    int leftX = 1520;    // 左列X
+    int rightX = 1720;   // 右列X
+    int startY = 680;    // 起始Y
+    int rowHeight = 60;  // 行距
+    int iconRadius = 12; // 半径12px
+
+    // 设置字体 (22px深色)
+    settextstyle(22, 0, L"微软雅黑");
+    settextcolor(RGB(17, 45, 78)); // #112D4E 深藏青
+
+    // 绘制5个食物项（前4个双列，第5个单独居中）
+    for (int i = 0; i < 5; i++)
+    {
+        int posX, posY;
+
+        if (i < 4)
+        {
+            // 前4个双列排列
+            posX = (i % 2 == 0) ? leftX : rightX; // 左右列交替
+            posY = startY + (i / 2) * rowHeight;  // 每两个换行
+        }
+        else
+        {
+            // 第5个居中 (✨ 精灵)
+            posX = leftX;
+            posY = startY + 2 * rowHeight; // 第三行
+        }
+
+        // 绘制圆形图标
+        setfillcolor(foods[i].color);
+        setlinecolor(foods[i].color);
+        solidcircle(posX + iconRadius, posY + iconRadius, iconRadius);
+
+        // 绘制食物名称
+        outtextxy(posX + iconRadius * 2 + 10, posY + 3, foods[i].name);
+    }
 }

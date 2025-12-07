@@ -149,10 +149,10 @@ int FoodManager::ConsumeFood(const Point &p)
         {
             int score = it->scoreValue;
             foods.erase(it);
-            return score;
+            return score; // 立即返回，避免迭代器失效
         }
     }
-    return 0;
+    return 0; // 没有找到食物
 }
 
 void FoodManager::RemoveFoodAt(const Point &p)
@@ -175,7 +175,8 @@ void FoodManager::ClearAllFoods()
 
 bool FoodManager::NeedMoreFood() const
 {
-    return foods.empty();
+    // 当食物数量<=1时就刷新，避免地图上完全没有食物
+    return foods.size() <= 1;
 }
 
 void FoodManager::Update()
