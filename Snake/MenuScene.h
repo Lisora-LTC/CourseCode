@@ -34,6 +34,7 @@ private:
         int height = 0;
         bool isSubmenu = false; // 是否进入子菜单
         bool isExit = false;    // 是否退出
+        bool isHistory = false; // 是否历史记录按钮
     };
 
     std::vector<MenuItem> menuItems;
@@ -104,4 +105,9 @@ private:
      * @brief 绘制说明文字
      */
     void DrawInstructions();
+
+    /**
+     * @brief 显示历史记录场景
+     */
+    void ShowHistoryScene();
 };

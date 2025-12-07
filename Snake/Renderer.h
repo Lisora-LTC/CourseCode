@@ -121,9 +121,43 @@ public:
     void DrawTextCentered(const wchar_t *text, int y, int fontSize, COLORREF color = WHITE);
 
     /**
+     * @brief 绘制文本（支持多种对齐方式）
+     * @param text 文本内容
+     * @param x X坐标
+     * @param y Y坐标
+     * @param fontSize 字体大小
+     * @param color 文本颜色
+     * @param align 对齐方式（LEFT/CENTER/RIGHT）
+     * @param width 文本区域宽度（用于对齐计算，0表示不限制）
+     */
+    void DrawTextAligned(const wchar_t *text, int x, int y, int fontSize,
+                         COLORREF color, int align = 0, int width = 0);
+
+    /**
      * @brief 绘制矩形框
      */
     void DrawRect(int x, int y, int width, int height, COLORREF color, bool filled = false);
+
+    /**
+     * @brief 绘制圆角矩形（带可选阴影）
+     * @param x X坐标
+     * @param y Y坐标
+     * @param width 宽度
+     * @param height 高度
+     * @param radius 圆角半径
+     * @param fillColor 填充颜色
+     * @param borderColor 边框颜色
+     * @param hasShadow 是否绘制阴影
+     * @param shadowOffset 阴影偏移量
+     */
+    void DrawRoundRect(int x, int y, int width, int height, int radius,
+                       COLORREF fillColor, COLORREF borderColor = RGB(0, 0, 0),
+                       bool hasShadow = false, int shadowOffset = 5);
+
+    /**
+     * @brief 检测鼠标是否在矩形区域内
+     */
+    bool IsMouseInRect(int mouseX, int mouseY, int x, int y, int width, int height) const;
 
 private:
     /**

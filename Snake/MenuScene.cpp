@@ -1,5 +1,6 @@
 #include <winsock2.h>
 #include "MenuScene.h"
+#include "HistoryScene.h"
 #include <windows.h>
 
 // ============== 构造与析构 ==============
@@ -98,17 +99,30 @@ void MenuScene::InitMainMenu()
     item2.isExit = false;
     menuItems.push_back(item2);
 
-    // 退出游戏
+    // 历史记录
     MenuItem item3;
-    item3.text = L"退出游戏";
-    item3.mode = EXIT; // 使用EXIT模式
+    item3.text = L"历史记录";
+    item3.mode = SINGLE; // 不使用
     item3.x = startX;
     item3.y = startY + spacing * 2;
     item3.width = itemWidth;
     item3.height = itemHeight;
     item3.isSubmenu = false;
-    item3.isExit = true;
+    item3.isExit = false;
+    item3.isHistory = true;
     menuItems.push_back(item3);
+
+    // 退出游戏
+    MenuItem item4;
+    item4.text = L"退出游戏";
+    item4.mode = EXIT; // 使用EXIT模式
+    item4.x = startX;
+    item4.y = startY + spacing * 3;
+    item4.width = itemWidth;
+    item4.height = itemHeight;
+    item4.isSubmenu = false;
+    item4.isExit = true;
+    menuItems.push_back(item4);
 }
 
 void MenuScene::InitSinglePlayerMenu()
@@ -329,7 +343,12 @@ void MenuScene::HandleMouseInput()
                     selectedOption = static_cast<int>(i);
                     MenuItem &item = menuItems[selectedOption];
 
-                    if (item.isExit)
+                    if (item.isHistory)
+                    {
+                        // 显示历史记录场景
+                        ShowHistoryScene();
+                    }
+                    else if (item.isExit)
                     {
                         if (currentMenu == MAIN_MENU)
                         {
@@ -399,7 +418,12 @@ void MenuScene::HandleKeyboardInput()
     {
         MenuItem &item = menuItems[selectedOption];
 
-        if (item.isExit)
+        if (item.isHistory)
+        {
+            // 显示历史记录场景
+            ShowHistoryScene();
+        }
+        else if (item.isExit)
         {
             if (currentMenu == MAIN_MENU)
             {
@@ -479,10 +503,21 @@ void MenuScene::DrawTitle()
 void MenuScene::DrawInstructions()
 {
     settextstyle(32, 0, L"微软雅黑");
-    settextcolor(RGB(17, 45, 78)); // #112D4E 深蓝色文字
+    settextcolor(RGB(17, 45, 78)); // #112D4E 深蓝色标题
     setbkmode(TRANSPARENT);
 
-    const wchar_t *instruction = L"使用鼠标点击或键盘↑↓键选择，回车确认";
+    const wchar_t *instruction = L"使用上下方向键或鼠标选择，回车确认";
     int textWidth = textwidth(instruction);
-    outtextxy((1920 - textWidth) / 2, 980, instruction); // 居中且靠下
+    outtextxy((1920 - textWidth) / 2, 980, instruction); // 放在右下角靠上
+}
+
+void MenuScene::ShowHistoryScene()
+{
+    // 历史记录场景不管理窗口，只使用当前窗口
+    HistoryScene historyScene(false);
+    historyScene.Show();
+
+    // 返回菜单之后，重新清屏
+    setbkcolor(RGB(249, 247, 247));
+    cleardevice();
 }

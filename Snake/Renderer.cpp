@@ -618,3 +618,62 @@ void Renderer::GetExitButtonBounds(int &x, int &y, int &width, int &height) cons
     width = 270;    // 放大1.8倍
     height = 90;    // 放大1.8倍
 }
+
+// ============== 新增工具方法实现 ==============
+
+void Renderer::DrawTextAligned(const wchar_t *text, int x, int y, int fontSize,
+                               COLORREF color, int align, int width)
+{
+    settextstyle(fontSize, 0, L"微软雅黑");
+    settextcolor(color);
+    setbkmode(TRANSPARENT);
+
+    int textWidth = textwidth(text);
+    int finalX = x;
+
+    // 计算对齐位置 (align: 0=LEFT, 1=CENTER, 2=RIGHT)
+    if (align == 1) // CENTER
+    {
+        finalX = x + (width > 0 ? (width - textWidth) / 2 : -textWidth / 2);
+    }
+    else if (align == 2) // RIGHT
+    {
+        finalX = x - textWidth;
+    }
+
+    outtextxy(finalX, y, text);
+}
+
+void Renderer::DrawRoundRect(int x, int y, int width, int height, int radius,
+                             COLORREF fillColor, COLORREF borderColor,
+                             bool hasShadow, int shadowOffset)
+{
+    // 绘制阴影
+    if (hasShadow)
+    {
+        COLORREF shadowColor = RGB(17, 45, 78); // #112D4E
+        setfillcolor(shadowColor);
+        setlinecolor(shadowColor);
+        solidroundrect(x + shadowOffset, y + shadowOffset,
+                       x + width + shadowOffset, y + height + shadowOffset,
+                       radius, radius);
+    }
+
+    // 绘制主体
+    setfillcolor(fillColor);
+    setlinecolor(borderColor);
+    solidroundrect(x, y, x + width, y + height, radius, radius);
+
+    // 绘制边框
+    if (borderColor != fillColor)
+    {
+        setlinecolor(borderColor);
+        roundrect(x, y, x + width, y + height, radius, radius);
+    }
+}
+
+bool Renderer::IsMouseInRect(int mouseX, int mouseY, int x, int y, int width, int height) const
+{
+    return mouseX >= x && mouseX <= x + width &&
+           mouseY >= y && mouseY <= y + height;
+}
