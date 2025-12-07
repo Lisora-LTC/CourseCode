@@ -21,11 +21,11 @@
 #include <graphics.h> // EasyX 图形库
 
 // ============== 常量定义 ==============
-const int BLOCK_SIZE = 20;                         // 每个格子的像素大小
-const int MAP_WIDTH = 40;                          // 地图宽度（格子数）
-const int MAP_HEIGHT = 30;                         // 地图高度（格子数）
-const int WINDOW_WIDTH = MAP_WIDTH * BLOCK_SIZE;   // 窗口宽度
-const int WINDOW_HEIGHT = MAP_HEIGHT * BLOCK_SIZE; // 窗口高度
+const int BLOCK_SIZE = 36;                         // 每个格子的像素大小 (1080p适配)
+const int MAP_WIDTH = 48;                          // 地图宽度（格子数）
+const int MAP_HEIGHT = 30;                         // 地图高度（格子数）调整为30填满屏幕
+const int WINDOW_WIDTH = MAP_WIDTH * BLOCK_SIZE;   // 窗口宽度 (1728)
+const int WINDOW_HEIGHT = MAP_HEIGHT * BLOCK_SIZE; // 窗口高度 (972)
 
 const int INITIAL_SNAKE_LENGTH = 3; // 蛇的初始长度
 const int GAME_SPEED = 100;         // 游戏速度（毫秒/帧）

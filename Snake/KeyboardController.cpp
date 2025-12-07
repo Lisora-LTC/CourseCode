@@ -63,10 +63,11 @@ void KeyboardController::CacheInput()
 {
     // 使用边沿检测，只在按键刚按下时记录
     bool currentState[4];
-    currentState[0] = IsKeyPressed(keyUp);
-    currentState[1] = IsKeyPressed(keyDown);
-    currentState[2] = IsKeyPressed(keyLeft);
-    currentState[3] = IsKeyPressed(keyRight);
+    // 玩家1同时支持WASD和方向键
+    currentState[0] = IsKeyPressed(keyUp) || (playerIndex == 0 && IsKeyPressed(VK_UP));
+    currentState[1] = IsKeyPressed(keyDown) || (playerIndex == 0 && IsKeyPressed(VK_DOWN));
+    currentState[2] = IsKeyPressed(keyLeft) || (playerIndex == 0 && IsKeyPressed(VK_LEFT));
+    currentState[3] = IsKeyPressed(keyRight) || (playerIndex == 0 && IsKeyPressed(VK_RIGHT));
 
     // 检测上键按下（边沿触发）
     if (currentState[0] && !keyState[0])
@@ -109,13 +110,14 @@ void KeyboardController::Init()
 Direction KeyboardController::DetectInput()
 {
     // 按优先级检测按键（避免同时按多个键的冲突）
-    if (IsKeyPressed(keyUp))
+    // 玩家1同时支持WASD和方向键
+    if (IsKeyPressed(keyUp) || (playerIndex == 0 && IsKeyPressed(VK_UP)))
         return UP;
-    if (IsKeyPressed(keyDown))
+    if (IsKeyPressed(keyDown) || (playerIndex == 0 && IsKeyPressed(VK_DOWN)))
         return DOWN;
-    if (IsKeyPressed(keyLeft))
+    if (IsKeyPressed(keyLeft) || (playerIndex == 0 && IsKeyPressed(VK_LEFT)))
         return LEFT;
-    if (IsKeyPressed(keyRight))
+    if (IsKeyPressed(keyRight) || (playerIndex == 0 && IsKeyPressed(VK_RIGHT)))
         return RIGHT;
 
     return NONE;
@@ -125,7 +127,7 @@ void KeyboardController::InitKeyBindings(int player)
 {
     if (player == 0)
     {
-        // 玩家1: WASD
+        // 玩家1: WASD（但也支持方向键）
         keyUp = 'W';
         keyDown = 'S';
         keyLeft = 'A';

@@ -46,6 +46,12 @@ private:
     int gameTime;       // 游戏时间（秒）
     int wallCollisions; // 撞墙次数（高级版用）
 
+    // 多人游戏数据
+    int player1Score; // P1得分
+    int player2Score; // P2得分
+    int player1Time;  // P1游戏时长
+    int player2Time;  // P2游戏时长
+
     // 控制标志
     bool isPaused;
     bool isRunning;

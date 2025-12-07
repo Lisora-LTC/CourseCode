@@ -4,6 +4,7 @@
 #include "Common.h"
 #include <iostream>
 #include <windows.h>
+#pragma comment(linker, "/subsystem:\"windows\" /entry:\"mainCRTStartup\"")
 
 // ============== 主函数 ==============
 int main()
@@ -22,8 +23,8 @@ int main()
     Utils::InitRandom();
 
     // 创建全局窗口（最大尺寸，足够容纳菜单和游戏）
-    int maxWidth = MAP_WIDTH * BLOCK_SIZE + 200; // 游戏窗口宽度
-    int maxHeight = MAP_HEIGHT * BLOCK_SIZE;     // 游戏窗口高度
+    int maxWidth = 1920;  // 1080p宽度
+    int maxHeight = 1080; // 1080p高度
     initgraph(maxWidth, maxHeight);
     SetWindowText(GetHWnd(), L"贪吃蛇游戏");
 

@@ -12,6 +12,7 @@ GameManager::GameManager()
       renderer(nullptr), networkManager(nullptr),
       currentState(MENU), currentMode(SINGLE),
       score(0), highScore(0), lives(3), gameTime(0), wallCollisions(0),
+      player1Score(0), player2Score(0), player1Time(0), player2Time(0),
       isPaused(false), isRunning(false),
       recordFileName("game_records.txt")
 {
@@ -252,9 +253,19 @@ void GameManager::GameOver()
         // 判断是否为多人游戏模式
         if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
         {
-            // 多人游戏：判断玩家是否胜利
+            // 多人游戏：判断玩家是否胜利，显示双人得分和时长
             bool playerWon = (playerSnake && playerSnake->IsAlive());
-            renderer->DrawMultiplayerGameOverScreen(playerWon, score);
+
+            // 记录双人游戏结束时的得分和时长
+            if (snakes.size() >= 2)
+            {
+                player1Score = snakes[0] ? snakes[0]->GetLength() : 0;
+                player2Score = snakes[1] ? snakes[1]->GetLength() : 0;
+                player1Time = snakes[0] && snakes[0]->IsAlive() ? gameTime : 0;
+                player2Time = snakes[1] && snakes[1]->IsAlive() ? gameTime : 0;
+            }
+
+            renderer->DrawMultiplayerGameOverScreen(playerWon, player1Score, player2Score, player1Time, player2Time);
         }
         else
         {
@@ -269,11 +280,13 @@ void GameManager::GameOver()
     // 等待用户交互
     Sleep(500); // 短暂延迟
 
-    // 定义按钮区域
-    int buttonX = 300;
-    int buttonY = 400;
-    int buttonWidth = 200;
-    int buttonHeight = 50;
+    // 定义按钮区域（与绘制的按钮位置保持一致）
+    int windowWidth = 1920;                // 实际窗口宽度（1080p）
+    int windowHeight = 1080;               // 实际窗口高度（1080p）
+    int buttonX = (windowWidth - 400) / 2; // 居中
+    int buttonY = windowHeight / 2 + 150;  // 与Renderer中的位置一致
+    int buttonWidth = 400;                 // 与Renderer中的宽度一致
+    int buttonHeight = 100;                // 与Renderer中的高度一致
 
     bool waitingForInput = true;
 
@@ -322,7 +335,7 @@ void GameManager::Render()
         return;
 
     renderer->BeginBatch();
-    renderer->Clear();
+    renderer->Clear(RGB(247, 251, 252)); // 游戏背景设置为纯白色
     if (gameMap)
         renderer->DrawMap(*gameMap);
     if (foodManager)
@@ -587,8 +600,9 @@ void GameManager::InitSingleMode()
 {
     // 1. 创建渲染器（不创建窗口，由main管理）
     renderer = new Renderer();
-    int totalWidth = MAP_WIDTH * BLOCK_SIZE + 200; // 游戏区域 + UI区域
-    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇游戏", false);
+    int totalWidth = 1920;  // 使用1920全屏宽度
+    int totalHeight = 1080; // 使用1080全屏高度
+    renderer->Init(totalWidth, totalHeight, L"贪吃蛇游戏", false);
 
     // 2. 创建地图
     gameMap = new GameMap();
@@ -613,8 +627,9 @@ void GameManager::InitLocalPVPMode()
 {
     // 创建渲染器（不创建窗口，由main管理）
     renderer = new Renderer();
-    int totalWidth = MAP_WIDTH * BLOCK_SIZE + 200;
-    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇 - 本地双人", false);
+    int totalWidth = 1920;  // 使用1920全屏宽度
+    int totalHeight = 1080; // 使用1080全屏高度
+    renderer->Init(totalWidth, totalHeight, L"贪吃蛇 - 本地双人", false);
 
     // 创建地图
     gameMap = new GameMap();
@@ -641,20 +656,19 @@ void GameManager::InitLocalPVPMode()
     score = 0;
     lives = 3;
     gameTime = 0;
-}
-
-void GameManager::InitNetworkPVPMode()
-{
-    // 网络对战模式（暂不实现，使用本地双人逻辑）
-    InitLocalPVPMode();
+    player1Score = 0;
+    player2Score = 0;
+    player1Time = 0;
+    player2Time = 0;
 }
 
 void GameManager::InitPVEMode()
 {
     // 创建渲染器（不创建窗口，由main管理）
     renderer = new Renderer();
-    int totalWidth = MAP_WIDTH * BLOCK_SIZE + 200;
-    renderer->Init(totalWidth, MAP_HEIGHT * BLOCK_SIZE, L"贪吃蛇 - 人机对战", false);
+    int totalWidth = 1920;  // 使用1920全屏宽度
+    int totalHeight = 1080; // 使用1080全屏高度
+    renderer->Init(totalWidth, totalHeight, L"贪吃蛇 - 人机对战", false);
 
     // 创建地图
     gameMap = new GameMap();
@@ -682,6 +696,16 @@ void GameManager::InitPVEMode()
     score = 0;
     lives = 3;
     gameTime = 0;
+    player1Score = 0;
+    player2Score = 0;
+    player1Time = 0;
+    player2Time = 0;
+}
+
+void GameManager::InitNetworkPVPMode()
+{
+    // 网络对战模式（暂时未实现，使用本地双人逻辑）
+    InitLocalPVPMode();
 }
 
 void GameManager::InitByGameMode(GameMode mode)

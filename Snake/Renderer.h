@@ -93,7 +93,16 @@ public:
      * @brief 绘制游戏结束界面
      */
     void DrawGameOverScreen(int finalScore, bool isHighScore);
-    void DrawMultiplayerGameOverScreen(bool playerWon, int finalScore);
+
+    /**
+     * @brief 绘制多人游戏结束界面
+     * @param playerWon P1是否胜利
+     * @param p1Score P1得分
+     * @param p2Score P2得分
+     * @param p1Time P1游戏时长（秒）
+     * @param p2Time P2游戏时长（秒）
+     */
+    void DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2Score, int p1Time, int p2Time);
 
     // ============== 工具方法 ==============
     /**
@@ -137,4 +146,19 @@ private:
      * @brief 绘制单个格子
      */
     void DrawBlock(int gridX, int gridY, COLORREF color, bool filled = true);
+
+    /**
+     * @brief 绘制带阴影的格子
+     */
+    void DrawBlockWithShadow(int gridX, int gridY, COLORREF color, bool filled = true);
+
+    /**
+     * @brief 绘制胶囊形按钮（拼图法：两个圆+一个矩形）
+     * @param x 按钮左上角X坐标
+     * @param y 按钮左上角Y坐标
+     * @param w 按钮宽度
+     * @param h 按钮高度
+     * @param color 按钮颜色
+     */
+    void DrawCapsuleButton(int x, int y, int w, int h, COLORREF color);
 };

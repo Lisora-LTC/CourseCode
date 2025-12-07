@@ -24,10 +24,10 @@ GameMode MenuScene::Show()
     // 1. 初始化图形窗口（仅当管理窗口时）
     if (manageWindow)
     {
-        initgraph(800, 600);
+        initgraph(1920, 1080);
     }
 
-    setbkcolor(RGB(20, 20, 40));
+    setbkcolor(RGB(249, 247, 247)); // #F9F7F7
     cleardevice();
 
     menuRunning = true;
@@ -68,11 +68,11 @@ void MenuScene::InitMainMenu()
 {
     menuItems.clear();
 
-    int startX = 250;
-    int startY = 200;
-    int itemWidth = 300;
-    int itemHeight = 50;
-    int spacing = 70;
+    int startX = 660;     // 1920/2 - 300 居中
+    int startY = 360;     // 从上往下1/3处
+    int itemWidth = 600;  // 放大到2倍
+    int itemHeight = 100; // 放大到2倍
+    int spacing = 160;    // 增加间距从140增加到160，增加呼吸感
 
     // 单人游戏（进入子菜单）
     MenuItem item1;
@@ -115,11 +115,11 @@ void MenuScene::InitSinglePlayerMenu()
 {
     menuItems.clear();
 
-    int startX = 250;
-    int startY = 150;
-    int itemWidth = 300;
-    int itemHeight = 50;
-    int spacing = 70;
+    int startX = 660;     // 居中
+    int startY = 270;     // 靠上一些
+    int itemWidth = 600;  // 放大到2倍
+    int itemHeight = 100; // 放大到2倍
+    int spacing = 140;    // 放大到2倍
 
     // 入门版
     MenuItem item1;
@@ -174,11 +174,11 @@ void MenuScene::InitMultiplayerMenu()
 {
     menuItems.clear();
 
-    int startX = 250;
-    int startY = 200;
-    int itemWidth = 300;
-    int itemHeight = 50;
-    int spacing = 70;
+    int startX = 660;     // 居中
+    int startY = 360;     // 从上往下1/3处
+    int itemWidth = 600;  // 放大到2倍
+    int itemHeight = 100; // 放大到2倍
+    int spacing = 140;    // 放大到2倍
 
     // 本地双人
     MenuItem item1;
@@ -252,24 +252,41 @@ void MenuScene::Render()
 
 void MenuScene::DrawMenuItem(const MenuItem &item, bool isSelected)
 {
-    // 绘制按钮背景
+    // 定义颜色变量
+    COLORREF btnColor;
+    COLORREF textColor;
+    int radius = item.height / 2;
+
+    // 统一逻辑：所有按钮未悬停时为灰蓝色，悬停时变为亮蓝色
     if (isSelected)
     {
-        setfillcolor(RGB(50, 150, 250));
-        setlinecolor(RGB(100, 200, 255));
+        // 悬停状态：亮蓝色，模拟发光效果
+        btnColor = RGB(85, 132, 188);   // #5584BC
+        textColor = RGB(255, 255, 255); // #FFFFFF 纯白
     }
     else
     {
-        setfillcolor(RGB(50, 50, 80));
-        setlinecolor(RGB(100, 100, 150));
+        // 常态：灰蓝色
+        btnColor = RGB(219, 226, 239); // #DBE2EF
+        textColor = RGB(17, 45, 78);   // #112D4E 深藏青
     }
 
-    setlinestyle(PS_SOLID, 2);
-    fillrectangle(item.x, item.y, item.x + item.width, item.y + item.height);
+    // 使用拼图法绘制胶囊形按钮（两个圆+一个矩形）
+    setfillcolor(btnColor);
+    setlinecolor(btnColor);                                                                      // 边框与填充色一致，消除黑边
+    solidcircle(item.x + radius, item.y + radius, radius);                                       // 左半圆
+    solidcircle(item.x + item.width - radius, item.y + radius, radius);                          // 右半圆
+    solidrectangle(item.x + radius, item.y, item.x + item.width - radius, item.y + item.height); // 中间矩形
 
     // 绘制文字
-    settextstyle(24, 0, L"微软雅黑");
-    settextcolor(WHITE);
+    LOGFONT f;
+    gettextstyle(&f);
+    f.lfHeight = 48;      // 所有按钮统一使用48px字体
+    f.lfWeight = FW_BOLD; // 加粗
+    wcscpy_s(f.lfFaceName, L"微软雅黑");
+    f.lfQuality = ANTIALIASED_QUALITY;
+    settextstyle(&f);
+    settextcolor(textColor);
     setbkmode(TRANSPARENT);
 
     int textWidth = textwidth(item.text.c_str());
@@ -289,14 +306,17 @@ void MenuScene::HandleMouseInput()
         // 检测鼠标移动
         if (msg.uMsg == WM_MOUSEMOVE)
         {
+            bool foundHover = false;
             for (size_t i = 0; i < menuItems.size(); ++i)
             {
                 if (IsMouseOver(menuItems[i], msg.x, msg.y))
                 {
                     selectedOption = static_cast<int>(i);
+                    foundHover = true;
                     break;
                 }
             }
+            // 如果鼠标不在任何按钮上，不改变选中状态
         }
 
         // 检测鼠标点击
@@ -440,8 +460,8 @@ bool MenuScene::IsMouseOver(const MenuItem &item, int mouseX, int mouseY)
 
 void MenuScene::DrawTitle()
 {
-    settextstyle(60, 0, L"微软雅黑");
-    settextcolor(RGB(255, 215, 0));
+    settextstyle(120, 0, L"微软雅黑");
+    settextcolor(RGB(17, 45, 78)); // #112D4E 深蓝色标题
     setbkmode(TRANSPARENT);
 
     const wchar_t *title;
@@ -453,14 +473,16 @@ void MenuScene::DrawTitle()
         title = L"选择双人模式";
 
     int textWidth = textwidth(title);
-    outtextxy((800 - textWidth) / 2, 80, title);
+    outtextxy((1920 - textWidth) / 2, 120, title); // 调整为1920居中
 }
 
 void MenuScene::DrawInstructions()
 {
-    settextstyle(18, 0, L"微软雅黑");
-    settextcolor(RGB(150, 150, 150));
+    settextstyle(32, 0, L"微软雅黑");
+    settextcolor(RGB(17, 45, 78)); // #112D4E 深蓝色文字
     setbkmode(TRANSPARENT);
 
-    outtextxy(180, 540, L"使用鼠标点击或键盘↑↓键选择，回车确认");
+    const wchar_t *instruction = L"使用鼠标点击或键盘↑↓键选择，回车确认";
+    int textWidth = textwidth(instruction);
+    outtextxy((1920 - textWidth) / 2, 980, instruction); // 居中且靠下
 }
