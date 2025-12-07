@@ -6,6 +6,13 @@
 #include <string>
 #include <memory>
 
+// 前向声明
+class Snake;
+class AIController;
+class GameMap;
+class FoodManager;
+class Renderer;
+
 // ============== 菜单场景 ==============
 // 处理进入游戏前的菜单界面
 class MenuScene
@@ -37,6 +44,18 @@ private:
 
     std::vector<MenuItem> menuItems;
     std::vector<std::unique_ptr<UIButton>> buttons; // UI按钮对象
+
+    // 背景蛇系统
+    Snake *backgroundSnake1;      // 背景蛇1（P1，左侧）
+    Snake *backgroundSnake2;      // 背景蛇2（P2，右侧）
+    AIController *backgroundAI1;  // AI控制器1
+    AIController *backgroundAI2;  // AI控制器2
+    GameMap *backgroundMap1;      // 左侧地图
+    GameMap *backgroundMap2;      // 右侧地图
+    FoodManager *backgroundFood1; // 食物管理器1
+    FoodManager *backgroundFood2; // 食物管理器2
+    Renderer *backgroundRenderer; // 渲染器
+    int backgroundUpdateCounter;  // 更新计数器
 
 public:
     // ============== 构造与析构 ==============
@@ -104,4 +123,25 @@ private:
      * @brief 显示历史记录场景
      */
     void ShowHistoryScene();
+
+    // ============== 背景蛇系统 ==============
+    /**
+     * @brief 初始化背景蛇
+     */
+    void InitBackgroundSnake();
+
+    /**
+     * @brief 更新背景蛇状态
+     */
+    void UpdateBackgroundSnake();
+
+    /**
+     * @brief 渲染背景蛇
+     */
+    void RenderBackgroundSnake();
+
+    /**
+     * @brief 清理背景蛇资源
+     */
+    void CleanupBackgroundSnake();
 };

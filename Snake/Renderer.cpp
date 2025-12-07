@@ -71,7 +71,14 @@ void Renderer::DrawSnake(const Snake &snake)
     COLORREF headColor = snake.GetId() == 0 ? RGB(63, 114, 175) : RGB(224, 133, 133); // P1:#3F72AF, P2:#E08585 莫兰迪粉
     DrawBlockWithShadow(body[0].x, body[0].y, headColor, true);
 
-    // 在蛇头上方显示玩家标记
+    // 绘制蛇身
+    COLORREF bodyColor = snake.GetId() == 0 ? RGB(63, 114, 175) : RGB(224, 133, 133); // P1:#3F72AF, P2:#E08585 莫兰迪粉
+    for (size_t i = 1; i < body.size(); ++i)
+    {
+        DrawBlock(body[i].x, body[i].y, bodyColor, true);
+    }
+
+    // 在蛇头上方显示玩家标记（最后绘制，避免被身体遮挡）
     wchar_t playerLabel[10];
     swprintf_s(playerLabel, L"P%d", snake.GetId() + 1);
     settextstyle(24, 0, L"微软雅黑");
@@ -81,13 +88,6 @@ void Renderer::DrawSnake(const Snake &snake)
     int pixelY = GridToPixelY(body[0].y);
     int textWidth = textwidth(playerLabel);
     outtextxy(pixelX + (BLOCK_SIZE - textWidth) / 2, pixelY - 28, playerLabel);
-
-    // 绘制蛇身
-    COLORREF bodyColor = snake.GetId() == 0 ? RGB(63, 114, 175) : RGB(224, 133, 133); // P1:#3F72AF, P2:#E08585 莫兰迪粉
-    for (size_t i = 1; i < body.size(); ++i)
-    {
-        DrawBlock(body[i].x, body[i].y, bodyColor, true);
-    }
 }
 
 void Renderer::DrawSnakes(const std::vector<Snake *> &snakes)
@@ -281,14 +281,17 @@ void Renderer::DrawUI(int score, int highScore, int length, int lives, int time)
     setlinestyle(PS_SOLID, 2);
     int radius = buttonHeight / 2;
 
-    // 绘制空心胶囊按钮
+    // 绘制空心胶囊按钮（先填充，再绘边框）
     setfillcolor(btnBgColor);
+    setlinecolor(btnBorderColor);
+    setlinestyle(PS_SOLID, 2);
+
+    // 填充背景
     solidcircle(buttonX + radius, buttonY + radius, radius);
     solidcircle(buttonX + buttonWidth - radius, buttonY + radius, radius);
     solidrectangle(buttonX + radius, buttonY, buttonX + buttonWidth - radius, buttonY + buttonHeight);
 
-    // 绘制边框
-    setlinecolor(btnBorderColor);
+    // 绘制边框（在填充之后）
     circle(buttonX + radius, buttonY + radius, radius);
     circle(buttonX + buttonWidth - radius, buttonY + radius, radius);
     line(buttonX + radius, buttonY, buttonX + buttonWidth - radius, buttonY);
@@ -343,9 +346,9 @@ void Renderer::DrawGameOverScreen(int finalScore, bool isHighScore)
         DrawTextCentered(L"★ 新纪录！★", windowHeight / 2, 56, RGB(249, 168, 37)); // #F9A825 金黄色
     }
 
-    // 绘制返回按钮
+    // 绘制返回按钮（等间距布局：新纪录底部+80px）
     int buttonX = (windowWidth - 400) / 2; // 居中
-    int buttonY = windowHeight / 2 + 150;  // 调整位置
+    int buttonY = windowHeight / 2 + 136;  // 540+56+80=676，等间距设计
     int buttonWidth = 400;                 // 放大到2倍
     int buttonHeight = 100;                // 放大到2倍
 
@@ -375,8 +378,8 @@ void Renderer::DrawGameOverScreen(int finalScore, bool isHighScore)
     int textY = buttonY + (buttonHeight - textHeight) / 2;
     outtextxy(textX, textY, btnText);
 
-    // 提示信息
-    DrawTextCentered(L"点击按钮或按回车/ESC返回", windowHeight / 2 + 300, 36, RGB(17, 45, 78)); // #112D4E
+    // 提示信息（按钮底部+80px）
+    DrawTextCentered(L"点击按钮或按回车/ESC返回", buttonY + buttonHeight + 80, 36, RGB(17, 45, 78));
 }
 
 void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2Score, int p1Time, int p2Time)
@@ -434,9 +437,9 @@ void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2
     int p2TimeWidth = textwidth(scoreText);
     outtextxy((windowWidth - p2TimeWidth) / 2, centerY + 180, scoreText);
 
-    // 绘制返回按钮
+    // 绘制返回按钮（等间距布局：P2时长底部+80px）
     int buttonX = (windowWidth - 400) / 2; // 居中
-    int buttonY = windowHeight / 2 + 150;  // 调整位置
+    int buttonY = windowHeight / 2 + 216;  // centerY(500)+180+36+80=796，等间距设计
     int buttonWidth = 400;                 // 放大到2倍
     int buttonHeight = 100;                // 放大到2倍
 
@@ -466,8 +469,8 @@ void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2
     int textY = buttonY + (buttonHeight - textHeight) / 2;
     outtextxy(textX, textY, btnText);
 
-    // 提示信息
-    DrawTextCentered(L"点击按钮或按回车/ESC返回", windowHeight / 2 + 300, 36, RGB(17, 45, 78)); // #112D4E
+    // 提示信息（按钮底部+80px）
+    DrawTextCentered(L"点击按钮或按回车/ESC返回", buttonY + buttonHeight + 80, 36, RGB(17, 45, 78));
 }
 
 // ============== 工具方法 ==============
@@ -558,7 +561,8 @@ void Renderer::DrawBlock(int gridX, int gridY, COLORREF color, bool filled)
     if (filled)
     {
         setfillcolor(color);
-        setlinestyle(PS_SOLID, 0);
+        setlinecolor(RGB(249, 247, 247));                                                      // #F9F7F7 背景色作为边框，制造间隙感
+        setlinestyle(PS_SOLID, 2);                                                             // 2px边框宽度
         fillroundrect(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1, 8, 8); // 8px圆角
     }
     else
@@ -595,11 +599,14 @@ void Renderer::DrawBlockWithShadow(int gridX, int gridY, COLORREF color, bool fi
     {
         // 先绘制阴影 (偏移2px, 颜色#DBE2EF)
         setfillcolor(RGB(219, 226, 239)); // #DBE2EF
-        setlinestyle(PS_SOLID, 0);
+        setlinecolor(RGB(249, 247, 247)); // #F9F7F7 背景色边框
+        setlinestyle(PS_SOLID, 2);
         fillroundrect(pixelX + 2, pixelY + 2, pixelX + BLOCK_SIZE + 1, pixelY + BLOCK_SIZE + 1, 8, 8);
 
-        // 再绘制主体
+        // 再绘制主体（带背景色边框）
         setfillcolor(color);
+        setlinecolor(RGB(249, 247, 247)); // #F9F7F7 背景色边框，制造间隙感
+        setlinestyle(PS_SOLID, 2);
         fillroundrect(pixelX, pixelY, pixelX + BLOCK_SIZE - 1, pixelY + BLOCK_SIZE - 1, 8, 8); // 8px圆角
     }
     else

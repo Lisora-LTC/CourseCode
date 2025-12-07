@@ -8,11 +8,11 @@
 #include <cmath>
 
 // ============== 构造与析构 ==============
-AIController::AIController() : nextMove(NONE), hasPath(false), targetFood(-1, -1), foodManager(nullptr)
+AIController::AIController() : nextMove(NONE), hasPath(false), targetFood(-1, -1), foodManager(nullptr), enemySnake(nullptr)
 {
 }
 
-AIController::AIController(FoodManager *foodMgr) : nextMove(NONE), hasPath(false), targetFood(-1, -1), foodManager(foodMgr)
+AIController::AIController(FoodManager *foodMgr) : nextMove(NONE), hasPath(false), targetFood(-1, -1), foodManager(foodMgr), enemySnake(nullptr)
 {
 }
 
@@ -38,7 +38,7 @@ Direction AIController::MakeDecision(const Snake &snake, const GameMap &map)
 
         // 验证这个方向是否安全
         Point nextPos = Utils::GetNextPoint(head, nextDir);
-        if (IsSafePosition(nextPos, snake, map))
+        if (IsSafePosition(nextPos, snake, map, enemySnake))
         {
             nextMove = nextDir;
             return nextDir;
@@ -52,26 +52,39 @@ Direction AIController::MakeDecision(const Snake &snake, const GameMap &map)
         }
     }
 
-    // 2. 尝试寻找最近的食物并规划路径
+    // 2. 尝试寻找最佳食物并规划路径（考虑距离和价值）
     if (foodManager)
     {
-        Point nearestFood = FindNearestFood(head);
+        Point bestFood = FindBestFood(head, snake, map);
 
         // 如果找到食物且不是当前目标，尝试规划新路径
-        if (nearestFood.x >= 0 && nearestFood.y >= 0)
+        if (bestFood.x >= 0 && bestFood.y >= 0)
         {
             // 如果目标食物改变或没有路径，重新规划
-            if (!hasPath || targetFood != nearestFood)
+            if (!hasPath || targetFood != bestFood)
             {
-                if (FindPathToFood(snake, map, nearestFood))
+                if (FindPathToFood(snake, map, bestFood))
                 {
-                    // 成功找到路径，返回第一步
+                    // 成功找到路径，返回第一步（需要验证安全性）
                     if (!path.empty())
                     {
                         Direction nextDir = path.front();
                         path.pop();
-                        nextMove = nextDir;
-                        return nextDir;
+
+                        // 验证这个方向是否安全（避免边界撞墙问题）
+                        Point nextPos = Utils::GetNextPoint(head, nextDir);
+                        if (IsSafePosition(nextPos, snake, map, enemySnake))
+                        {
+                            nextMove = nextDir;
+                            return nextDir;
+                        }
+                        else
+                        {
+                            // 路径不安全，清空并寻找安全方向
+                            while (!path.empty())
+                                path.pop();
+                            hasPath = false;
+                        }
                     }
                 }
             }
@@ -142,7 +155,7 @@ bool AIController::FindPathToFood(const Snake &snake, const GameMap &map, const 
             if (visited.find(next) != visited.end() && visited[next])
                 continue;
 
-            if (!IsSafePosition(next, snake, map))
+            if (!IsSafePosition(next, snake, map, enemySnake))
                 continue;
 
             queue.push(next);
@@ -204,7 +217,7 @@ int AIController::EvaluateDirection(const Point &head, Direction dir, const Snak
     Point next = Utils::GetNextPoint(head, dir);
 
     // 1. 如果不安全，返回极低分数
-    if (!IsSafePosition(next, snake, map))
+    if (!IsSafePosition(next, snake, map, enemySnake))
         return -1000;
 
     int score = 0;
@@ -213,7 +226,7 @@ int AIController::EvaluateDirection(const Point &head, Direction dir, const Snak
     std::queue<Point> queue;
     std::map<Point, bool> visited;
     int reachableSpace = 0;
-    int maxDepth = 10; // 限制搜索深度，避免性能问题
+    int maxDepth = 15; // 增加搜索深度，更好评估空间
 
     queue.push(next);
     visited[next] = true;
@@ -233,7 +246,7 @@ int AIController::EvaluateDirection(const Point &head, Direction dir, const Snak
             if (visited.find(neighbor) != visited.end() && visited[neighbor])
                 continue;
 
-            if (!IsSafePosition(neighbor, snake, map))
+            if (!IsSafePosition(neighbor, snake, map, enemySnake))
                 continue;
 
             queue.push(neighbor);
@@ -243,7 +256,27 @@ int AIController::EvaluateDirection(const Point &head, Direction dir, const Snak
 
     score += reachableSpace * 10; // 可达空间越大，分数越高
 
-    // 3. 避免频繁转向（保持当前方向有加分）
+    // 3. 【方案5】死胡同检测：如果可达空间小于蛇的长度，严重扣分
+    int snakeLength = static_cast<int>(snake.GetBody().size());
+    if (reachableSpace < snakeLength)
+    {
+        score -= 800; // 严重扣分，避免走进死路
+    }
+
+    // 4. 【方案5】尾巴追逐策略：如果没有有效路径到食物，追逐自己的尾巴
+    if (!hasPath)
+    {
+        Point tail = snake.GetBody().back();
+        int distToTail = BFS_GetDistance(next, tail, snake, map);
+
+        if (distToTail > 0)
+        {
+            // 距离尾巴越近，分数越高（保持在安全区域循环）
+            score += 50 / distToTail;
+        }
+    }
+
+    // 5. 避免频繁转向（保持当前方向有加分）
     if (dir == snake.GetDirection())
         score += 5;
 
@@ -274,9 +307,22 @@ Direction AIController::ChooseSafeDirection(const Snake &snake, const GameMap &m
         }
     }
 
-    // 如果所有方向都不安全，保持当前方向
+    // 如果所有方向都不安全（包括当前方向），尝试找任意安全方向（允许转向）
     if (bestScore == -10000)
+    {
+        // 紧急情况：尝试所有方向（包括180度转向）
+        for (Direction dir : directions)
+        {
+            Point nextPos = Utils::GetNextPoint(head, dir);
+            if (IsSafePosition(nextPos, snake, map, enemySnake))
+            {
+                return dir; // 找到任意安全方向就返回
+            }
+        }
+
+        // 真的无路可走，只能保持当前方向（必死）
         return currentDir;
+    }
 
     return bestDir;
 }
@@ -307,7 +353,7 @@ Point AIController::FindNearestFood(const Point &head)
     return nearest;
 }
 
-bool AIController::IsSafePosition(const Point &pos, const Snake &snake, const GameMap &map)
+bool AIController::IsSafePosition(const Point &pos, const Snake &snake, const GameMap &map, const Snake *enemySnake)
 {
     // 1. 检查是否在边界内
     if (!Utils::IsInBounds(pos))
@@ -325,5 +371,139 @@ bool AIController::IsSafePosition(const Point &pos, const Snake &snake, const Ga
             return false;
     }
 
+    // 4. 如果存在敌方蛇，检查是否会与敌方碰撞（方案3）
+    if (enemySnake)
+    {
+        Point enemyHead = enemySnake->GetHead();
+        Direction enemyDir = enemySnake->GetDirection();
+
+        // 预测敌人下一步可能到达的3个位置
+        Direction possibleDirs[] = {UP, DOWN, LEFT, RIGHT};
+        for (Direction dir : possibleDirs)
+        {
+            if (Utils::IsOppositeDirection(dir, enemyDir))
+                continue; // 不能180度转向
+
+            Point enemyNextPos = Utils::GetNextPoint(enemyHead, dir);
+            if (pos == enemyNextPos)
+                return false; // 可能与敌人的下一步冲突
+        }
+
+        // 避开敌人头部周围1格（太危险）
+        int dist = abs(pos.x - enemyHead.x) + abs(pos.y - enemyHead.y);
+        if (dist <= 1)
+            return false;
+
+        // 检查是否撞到敌方蛇身
+        const std::vector<Point> &enemyBody = enemySnake->GetBody();
+        for (size_t i = 0; i < enemyBody.size() - 1; i++)
+        {
+            if (pos == enemyBody[i])
+                return false;
+        }
+    }
+
     return true;
+}
+
+// ============== 新增方法：BFS计算实际距离 ==============
+int AIController::BFS_GetDistance(const Point &start, const Point &target, const Snake &snake, const GameMap &map)
+{
+    if (start == target)
+        return 0;
+
+    std::queue<Point> queue;
+    std::map<Point, int> distance; // 记录到每个点的距离
+
+    queue.push(start);
+    distance[start] = 0;
+
+    Direction directions[] = {UP, DOWN, LEFT, RIGHT};
+
+    while (!queue.empty())
+    {
+        Point current = queue.front();
+        queue.pop();
+
+        int currentDist = distance[current];
+
+        // 找到目标
+        if (current == target)
+            return currentDist;
+
+        // 尝试四个方向
+        for (Direction dir : directions)
+        {
+            Point next = Utils::GetNextPoint(current, dir);
+
+            // 如果已访问过，跳过
+            if (distance.find(next) != distance.end())
+                continue;
+
+            // 如果不安全，跳过（传入enemySnake用于避开敌人）
+            if (!IsSafePosition(next, snake, map, enemySnake))
+                continue;
+
+            queue.push(next);
+            distance[next] = currentDist + 1;
+        }
+    }
+
+    return -1; // 无法到达
+}
+
+// ============== 新增方法：寻找最佳食物 ==============
+Point AIController::FindBestFood(const Point &head, const Snake &snake, const GameMap &map)
+{
+    if (!foodManager)
+        return Point(-1, -1);
+
+    const std::vector<Food> &foods = foodManager->GetAllFoods();
+
+    if (foods.empty())
+        return Point(-1, -1);
+
+    // 用于存储每个食物的评分
+    struct FoodScore
+    {
+        Point position;
+        int distance;
+        int value;
+        float score;
+
+        FoodScore(const Point &pos, int dist, int val)
+            : position(pos), distance(dist), value(val)
+        {
+            // 综合评分 = 食物价值 / 距离
+            // 如果距离为-1（不可达），评分为-1
+            if (dist > 0)
+                score = static_cast<float>(val) / static_cast<float>(dist);
+            else
+                score = -1.0f;
+        }
+    };
+
+    std::vector<FoodScore> foodScores;
+
+    // 计算每个食物的评分
+    for (const Food &food : foods)
+    {
+        int dist = BFS_GetDistance(head, food.position, snake, map);
+        foodScores.push_back(FoodScore(food.position, dist, food.scoreValue));
+    }
+
+    // 找到评分最高的食物
+    float bestScore = -1.0f;
+    Point bestFood(-1, -1);
+
+    for (const FoodScore &fs : foodScores)
+    {
+        if (fs.score > bestScore)
+        {
+            bestScore = fs.score;
+            bestFood = fs.position;
+        }
+    }
+
+    return bestFood;
 }

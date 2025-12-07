@@ -284,9 +284,18 @@ void GameManager::GameOver()
     int windowWidth = 1920;                // 实际窗口宽度（1080p）
     int windowHeight = 1080;               // 实际窗口高度（1080p）
     int buttonX = (windowWidth - 400) / 2; // 居中
-    int buttonY = windowHeight / 2 + 150;  // 与Renderer中的位置一致
-    int buttonWidth = 400;                 // 与Renderer中的宽度一致
-    int buttonHeight = 100;                // 与Renderer中的高度一致
+    // 根据游戏模式设置按钮Y坐标（与Renderer中的位置一致）
+    int buttonY;
+    if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
+    {
+        buttonY = windowHeight / 2 + 216; // 多人游戏
+    }
+    else
+    {
+        buttonY = windowHeight / 2 + 136; // 单人游戏
+    }
+    int buttonWidth = 400;  // 与Renderer中的宽度一致
+    int buttonHeight = 100; // 与Renderer中的高度一致
 
     bool waitingForInput = true;
 
@@ -686,7 +695,9 @@ void GameManager::InitPVEMode()
     // 创建AI蛇
     Point startPos2(MAP_WIDTH * 2 / 3, MAP_HEIGHT / 2);
     Snake *snake2 = new Snake(1, startPos2, RIGHT, RGB(255, 0, 255));
-    snake2->SetController(new AIController(foodManager)); // AI控制，传入食物管理器
+    AIController *aiController = new AIController(foodManager); // AI控制，传入食物管理器
+    aiController->SetEnemySnake(snake1);                        // 设置敌方蛇为玩家蛇，用于预测和躲避
+    snake2->SetController(aiController);
     snakes.push_back(snake2);
 
     // 生成初始食物

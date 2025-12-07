@@ -1,17 +1,32 @@
 #include <winsock2.h>
 #include "MenuScene.h"
 #include "HistoryScene.h"
+#include "Snake.h"
+#include "AIController.h"
+#include "GameMap.h"
+#include "FoodManager.h"
+#include "Renderer.h"
 #include <windows.h>
+#include <ctime>
 
 // ============== 构造与析构 ==============
 MenuScene::MenuScene(bool manageWindow)
-    : selectedOption(0), menuRunning(false), currentMenu(MAIN_MENU), manageWindow(manageWindow)
+    : selectedOption(0), menuRunning(false), currentMenu(MAIN_MENU), manageWindow(manageWindow),
+      backgroundSnake1(nullptr), backgroundSnake2(nullptr),
+      backgroundAI1(nullptr), backgroundAI2(nullptr),
+      backgroundMap1(nullptr), backgroundMap2(nullptr),
+      backgroundFood1(nullptr), backgroundFood2(nullptr),
+      backgroundRenderer(nullptr), backgroundUpdateCounter(0)
 {
+    srand(static_cast<unsigned int>(time(nullptr))); // 初始化随机数生成器
     InitMainMenu();
+    InitBackgroundSnake();
 }
 
 MenuScene::~MenuScene()
 {
+    CleanupBackgroundSnake();
+
     // 只有当MenuScene管理窗口时才关闭
     if (manageWindow)
     {
@@ -45,6 +60,9 @@ GameMode MenuScene::Show()
 
         // 更新输入缓冲
         inputMgr.Update();
+
+        // 更新背景蛇
+        UpdateBackgroundSnake();
 
         HandleMouseInput();
         HandleKeyboardInput();
@@ -214,6 +232,9 @@ void MenuScene::Render()
 {
     BeginBatchDraw();
     cleardevice();
+
+    // 绘制背景蛇（在所有UI元素之前）
+    RenderBackgroundSnake();
 
     // 绘制标题
     DrawTitle();
@@ -432,7 +453,259 @@ void MenuScene::ShowHistoryScene()
     HistoryScene historyScene(false);
     historyScene.Show();
 
-    // 返回菜单之后，重新清屏
+    // 返回菜单之后，重新清屏并重置背景蛇计数器
     setbkcolor(RGB(249, 247, 247));
     cleardevice();
+    backgroundUpdateCounter = 0; // 重置计数器，避免立即更新
+}
+
+// ============== 背景蛇系统实现 ==============
+void MenuScene::InitBackgroundSnake()
+{
+    // 1. 创建两个简化地图（只有边界，无内墙）
+    // 左侧地图：0-21列（按钮startX=660, 660/30=22，所以P1在x≤21）
+    backgroundMap1 = new GameMap(22, 36); // P1活动区域
+    backgroundMap1->InitBoundaryWalls();
+
+    // 右侧地图：42-63列（按钮endX=1260, 1260/30=42，所以P2在x≥42）
+    backgroundMap2 = new GameMap(22, 36); // P2活动区域（42-63共22格）
+    backgroundMap2->InitBoundaryWalls();
+
+    // 2. 创建两个食物管理器
+    backgroundFood1 = new FoodManager(1, 2);
+    backgroundFood2 = new FoodManager(1, 2);
+
+    // 3. 创建渲染器（不创建新窗口）
+    backgroundRenderer = new Renderer();
+    backgroundRenderer->Init(1920, 1080, L"", false);
+
+    // 4. 创建P1背景蛇（左侧，蓝色）
+    Point startPos1 = {10, 18};                                           // 左侧区域中心（0-21中间）
+    backgroundSnake1 = new Snake(0, startPos1, RIGHT, RGB(63, 114, 175)); // #3F72AF
+    backgroundAI1 = new AIController(backgroundFood1);
+    backgroundSnake1->SetController(backgroundAI1);
+    backgroundFood1->SpawnFood(*backgroundSnake1, *backgroundMap1);
+
+    // 5. 创建P2背景蛇（右侧，粉色）
+    Point startPos2 = {10, 18};                                           // 地图坐标10，实际坂52（42+10）
+    backgroundSnake2 = new Snake(1, startPos2, LEFT, RGB(224, 133, 133)); // #E08585
+    backgroundAI2 = new AIController(backgroundFood2);
+    backgroundSnake2->SetController(backgroundAI2);
+    backgroundFood2->SpawnFood(*backgroundSnake2, *backgroundMap2);
+
+    // 6. 初始化计数器
+    backgroundUpdateCounter = 0;
+}
+
+void MenuScene::UpdateBackgroundSnake()
+{
+    // 每20帧更新一次（约0.2秒，比游戏速度慢）
+    backgroundUpdateCounter++;
+    if (backgroundUpdateCounter >= 20)
+    {
+        backgroundUpdateCounter = 0;
+
+        // ===== 更新P1（左侧蛇） =====
+        if (backgroundSnake1 && backgroundSnake1->IsAlive())
+        {
+            backgroundSnake1->Update(*backgroundMap1);
+            Point head1 = backgroundSnake1->GetHead();
+
+            // 检查是否越界到右侧（超过x=21）
+            if (head1.x > 21)
+            {
+                // 重生
+                int newX = rand() % 18 + 2;
+                int newY = rand() % 32 + 2;
+                backgroundSnake1->Reset(Point(newX, newY), (Direction)(rand() % 4));
+                backgroundFood1->ClearAllFoods();
+                backgroundFood1->SpawnFood(*backgroundSnake1, *backgroundMap1);
+            }
+            else
+            {
+                // 检查吃食物
+                if (backgroundFood1->HasFoodAt(head1))
+                {
+                    backgroundFood1->ConsumeFood(head1);
+                    backgroundSnake1->Grow();
+                    if (backgroundFood1->NeedMoreFood())
+                        backgroundFood1->SpawnFood(*backgroundSnake1, *backgroundMap1);
+                    if (backgroundSnake1->GetLength() > 40)
+                        backgroundSnake1->ShrinkByHalf();
+                }
+
+                // 检查碰撞
+                WallType wall1 = backgroundMap1->GetWallType(head1);
+                if (wall1 != NO_WALL || backgroundSnake1->CheckSelfCollision())
+                {
+                    int newX = rand() % 18 + 2;
+                    int newY = rand() % 32 + 2;
+                    backgroundSnake1->Reset(Point(newX, newY), (Direction)(rand() % 4));
+                    backgroundFood1->ClearAllFoods();
+                    backgroundFood1->SpawnFood(*backgroundSnake1, *backgroundMap1);
+                }
+            }
+        }
+
+        // ===== 更新P2（右侧蛇） =====
+        if (backgroundSnake2 && backgroundSnake2->IsAlive())
+        {
+            backgroundSnake2->Update(*backgroundMap2);
+            Point head2 = backgroundSnake2->GetHead();
+
+            // P2的实际坐标需要转换（地图坐标0对应实际坐标42）
+            int actualX = head2.x + 42;
+
+            // 检查是否越界到左侧（小于x=42）
+            if (actualX < 42)
+            {
+                // 重生
+                int newX = rand() % 18 + 2;
+                int newY = rand() % 32 + 2;
+                backgroundSnake2->Reset(Point(newX, newY), (Direction)(rand() % 4));
+                backgroundFood2->ClearAllFoods();
+                backgroundFood2->SpawnFood(*backgroundSnake2, *backgroundMap2);
+            }
+            else
+            {
+                // 检查吃食物
+                if (backgroundFood2->HasFoodAt(head2))
+                {
+                    backgroundFood2->ConsumeFood(head2);
+                    backgroundSnake2->Grow();
+                    if (backgroundFood2->NeedMoreFood())
+                        backgroundFood2->SpawnFood(*backgroundSnake2, *backgroundMap2);
+                    if (backgroundSnake2->GetLength() > 40)
+                        backgroundSnake2->ShrinkByHalf();
+                }
+
+                // 检查碰撞
+                WallType wall2 = backgroundMap2->GetWallType(head2);
+                if (wall2 != NO_WALL || backgroundSnake2->CheckSelfCollision())
+                {
+                    int newX = rand() % 18 + 2;
+                    int newY = rand() % 32 + 2;
+                    backgroundSnake2->Reset(Point(newX, newY), (Direction)(rand() % 4));
+                    backgroundFood2->ClearAllFoods();
+                    backgroundFood2->SpawnFood(*backgroundSnake2, *backgroundMap2);
+                }
+            }
+        }
+    }
+}
+void MenuScene::RenderBackgroundSnake()
+{
+    if (!backgroundRenderer)
+        return;
+
+    // 绘制P1（左侧蛇）
+    if (backgroundSnake1)
+    {
+        backgroundRenderer->DrawSnake(*backgroundSnake1);
+    }
+
+    // 绘制P2（右侧蛇）- 手动绘制并添加坐标偏移
+    if (backgroundSnake2)
+    {
+        const auto &body = backgroundSnake2->GetBody();
+        if (!body.empty())
+        {
+            // 绘制蛇头（带阴影，粉色）
+            COLORREF headColor = RGB(224, 133, 133); // #E08585
+            int headX = body[0].x + 42;
+            int headY = body[0].y;
+
+            // 使用Renderer的私有方法需要公开，或直接用EasyX绘制
+            int pixelX = headX * 30; // BLOCK_SIZE = 30
+            int pixelY = headY * 30;
+
+            // 绘制阴影
+            setfillcolor(RGB(219, 226, 239));
+            setlinecolor(RGB(249, 247, 247)); // 背景色边框
+            setlinestyle(PS_SOLID, 2);
+            fillroundrect(pixelX + 2, pixelY + 2, pixelX + 31, pixelY + 31, 8, 8);
+            // 绘制蛇头
+            setfillcolor(headColor);
+            setlinecolor(RGB(249, 247, 247)); // #F9F7F7 背景色边框，制造间隙感
+            setlinestyle(PS_SOLID, 2);
+            fillroundrect(pixelX, pixelY, pixelX + 29, pixelY + 29, 8, 8);
+
+            // 绘制蛇身
+            for (size_t i = 1; i < body.size(); ++i)
+            {
+                int bodyX = (body[i].x + 42) * 30;
+                int bodyY = body[i].y * 30;
+                setfillcolor(headColor);
+                setlinecolor(RGB(249, 247, 247)); // #F9F7F7 背景色边框
+                setlinestyle(PS_SOLID, 2);
+                fillroundrect(bodyX, bodyY, bodyX + 29, bodyY + 29, 8, 8);
+            }
+
+            // 绘制P2标签
+            wchar_t label[] = L"P2";
+            settextstyle(24, 0, L"微软雅黑");
+            settextcolor(RGB(17, 45, 78));
+            setbkmode(TRANSPARENT);
+            int textWidth = textwidth(label);
+            outtextxy(pixelX + (30 - textWidth) / 2, pixelY - 28, label);
+        }
+    }
+}
+
+void MenuScene::CleanupBackgroundSnake()
+{
+    // 按相反顺序清理资源
+    if (backgroundSnake1)
+    {
+        delete backgroundSnake1;
+        backgroundSnake1 = nullptr;
+    }
+
+    if (backgroundSnake2)
+    {
+        delete backgroundSnake2;
+        backgroundSnake2 = nullptr;
+    }
+
+    if (backgroundAI1)
+    {
+        delete backgroundAI1;
+        backgroundAI1 = nullptr;
+    }
+
+    if (backgroundAI2)
+    {
+        delete backgroundAI2;
+        backgroundAI2 = nullptr;
+    }
+
+    if (backgroundFood1)
+    {
+        delete backgroundFood1;
+        backgroundFood1 = nullptr;
+    }
+
+    if (backgroundFood2)
+    {
+        delete backgroundFood2;
+        backgroundFood2 = nullptr;
+    }
+
+    if (backgroundRenderer)
+    {
+        delete backgroundRenderer;
+        backgroundRenderer = nullptr;
+    }
+
+    if (backgroundMap1)
+    {
+        delete backgroundMap1;
+        backgroundMap1 = nullptr;
+    }
+
+    if (backgroundMap2)
+    {
+        delete backgroundMap2;
+        backgroundMap2 = nullptr;
+    }
 }

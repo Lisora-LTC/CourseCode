@@ -51,12 +51,35 @@ private:
     Direction ChooseSafeDirection(const Snake &snake, const GameMap &map);
 
     /**
-     * @brief 寻找最近的食物
+     * @brief 寻找最近的食物（已废弃，使用FindBestFood）
      */
     Point FindNearestFood(const Point &head);
 
     /**
-     * @brief 判断某个位置是否安全
+     * @brief 使用BFS计算到目标点的实际步数
+     * @return 返回步数，如果不可达返回-1
      */
-    bool IsSafePosition(const Point &pos, const Snake &snake, const GameMap &map);
+    int BFS_GetDistance(const Point &start, const Point &target, const Snake &snake, const GameMap &map);
+
+    /**
+     * @brief 寻找最佳食物（综合考虑距离和价值）
+     * @return 返回最佳食物位置，无食物返回(-1,-1)
+     */
+    Point FindBestFood(const Point &head, const Snake &snake, const GameMap &map);
+
+    /**
+     * @brief 判断某个位置是否安全
+     * @param enemySnake 敌方蛇指针（可选，用于对战模式）
+     */
+    bool IsSafePosition(const Point &pos, const Snake &snake, const GameMap &map, const Snake *enemySnake = nullptr);
+
+private:
+    // 敌方蛇引用（用于对战模式）
+    const Snake *enemySnake;
+
+public:
+    /**
+     * @brief 设置敌方蛇（用于对战模式的预测）
+     */
+    void SetEnemySnake(const Snake *enemy) { enemySnake = enemy; }
 };
