@@ -33,13 +33,13 @@ void UIButton::Draw()
     // 根据样式绘制
     switch (style)
     {
-    case CAPSULE:
+    case BUTTON_CAPSULE:
         DrawCapsule(bgColor, txtColor);
         break;
-    case ROUNDED_RECT:
+    case BUTTON_ROUNDED_RECT:
         DrawRoundedRect(bgColor, txtColor);
         break;
-    case RECT:
+    case BUTTON_RECT:
         DrawRect(bgColor, txtColor);
         break;
     }

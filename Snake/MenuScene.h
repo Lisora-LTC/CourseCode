@@ -1,8 +1,10 @@
 #pragma once
 #include "Common.h"
 #include "InputManager.h"
+#include "UIComponent.h"
 #include <graphics.h>
 #include <string>
+#include <memory>
 
 // ============== 菜单场景 ==============
 // 处理进入游戏前的菜单界面
@@ -23,21 +25,18 @@ private:
 
     InputManager inputMgr; // 统一输入管理器
 
-    // 菜单选项
+    // 菜单选项数据（简化版，绘制由UIButton负责）
     struct MenuItem
     {
         std::wstring text;
         GameMode mode = SINGLE;
-        int x = 0;
-        int y = 0;
-        int width = 0;
-        int height = 0;
         bool isSubmenu = false; // 是否进入子菜单
         bool isExit = false;    // 是否退出
         bool isHistory = false; // 是否历史记录按钮
     };
 
     std::vector<MenuItem> menuItems;
+    std::vector<std::unique_ptr<UIButton>> buttons; // UI按钮对象
 
 public:
     // ============== 构造与析构 ==============
@@ -72,14 +71,14 @@ private:
     void InitMultiplayerMenu();
 
     /**
+     * @brief 创建按钮（根据菜单项列表）
+     */
+    void CreateButtons();
+
+    /**
      * @brief 渲染菜单
      */
     void Render();
-
-    /**
-     * @brief 绘制菜单项
-     */
-    void DrawMenuItem(const MenuItem &item, bool isSelected);
 
     /**
      * @brief 处理鼠标输入
@@ -90,11 +89,6 @@ private:
      * @brief 处理键盘输入
      */
     void HandleKeyboardInput();
-
-    /**
-     * @brief 检测鼠标是否在某个菜单项上
-     */
-    bool IsMouseOver(const MenuItem &item, int mouseX, int mouseY);
 
     /**
      * @brief 绘制标题

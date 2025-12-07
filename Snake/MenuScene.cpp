@@ -69,32 +69,18 @@ void MenuScene::InitMainMenu()
 {
     menuItems.clear();
 
-    int startX = 660;     // 1920/2 - 300 居中
-    int startY = 360;     // 从上往下1/3处
-    int itemWidth = 600;  // 放大到2倍
-    int itemHeight = 100; // 放大到2倍
-    int spacing = 160;    // 增加间距从140增加到160，增加呼吸感
-
     // 单人游戏（进入子菜单）
     MenuItem item1;
     item1.text = L"单人游戏";
-    item1.mode = SINGLE; // 默认值
-    item1.x = startX;
-    item1.y = startY;
-    item1.width = itemWidth;
-    item1.height = itemHeight;
-    item1.isSubmenu = true; // 修改为进入子菜单
+    item1.mode = SINGLE;
+    item1.isSubmenu = true;
     item1.isExit = false;
     menuItems.push_back(item1);
 
     // 双人游戏（进入子菜单）
     MenuItem item2;
     item2.text = L"双人游戏";
-    item2.mode = LOCAL_PVP; // 默认值
-    item2.x = startX;
-    item2.y = startY + spacing;
-    item2.width = itemWidth;
-    item2.height = itemHeight;
+    item2.mode = LOCAL_PVP;
     item2.isSubmenu = true;
     item2.isExit = false;
     menuItems.push_back(item2);
@@ -102,11 +88,7 @@ void MenuScene::InitMainMenu()
     // 历史记录
     MenuItem item3;
     item3.text = L"历史记录";
-    item3.mode = SINGLE; // 不使用
-    item3.x = startX;
-    item3.y = startY + spacing * 2;
-    item3.width = itemWidth;
-    item3.height = itemHeight;
+    item3.mode = SINGLE;
     item3.isSubmenu = false;
     item3.isExit = false;
     item3.isHistory = true;
@@ -115,34 +97,22 @@ void MenuScene::InitMainMenu()
     // 退出游戏
     MenuItem item4;
     item4.text = L"退出游戏";
-    item4.mode = EXIT; // 使用EXIT模式
-    item4.x = startX;
-    item4.y = startY + spacing * 3;
-    item4.width = itemWidth;
-    item4.height = itemHeight;
+    item4.mode = EXIT;
     item4.isSubmenu = false;
     item4.isExit = true;
     menuItems.push_back(item4);
+
+    CreateButtons();
 }
 
 void MenuScene::InitSinglePlayerMenu()
 {
     menuItems.clear();
 
-    int startX = 660;     // 居中
-    int startY = 270;     // 靠上一些
-    int itemWidth = 600;  // 放大到2倍
-    int itemHeight = 100; // 放大到2倍
-    int spacing = 140;    // 放大到2倍
-
     // 入门版
     MenuItem item1;
     item1.text = L"入门版";
     item1.mode = BEGINNER;
-    item1.x = startX;
-    item1.y = startY;
-    item1.width = itemWidth;
-    item1.height = itemHeight;
     item1.isSubmenu = false;
     item1.isExit = false;
     menuItems.push_back(item1);
@@ -151,10 +121,6 @@ void MenuScene::InitSinglePlayerMenu()
     MenuItem item2;
     item2.text = L"进阶版";
     item2.mode = ADVANCED;
-    item2.x = startX;
-    item2.y = startY + spacing;
-    item2.width = itemWidth;
-    item2.height = itemHeight;
     item2.isSubmenu = false;
     item2.isExit = false;
     menuItems.push_back(item2);
@@ -163,10 +129,6 @@ void MenuScene::InitSinglePlayerMenu()
     MenuItem item3;
     item3.text = L"高级版";
     item3.mode = EXPERT;
-    item3.x = startX;
-    item3.y = startY + spacing * 2;
-    item3.width = itemWidth;
-    item3.height = itemHeight;
     item3.isSubmenu = false;
     item3.isExit = false;
     menuItems.push_back(item3);
@@ -174,34 +136,22 @@ void MenuScene::InitSinglePlayerMenu()
     // 返回
     MenuItem item4;
     item4.text = L"返回";
-    item4.mode = SINGLE; // 不使用
-    item4.x = startX;
-    item4.y = startY + spacing * 3;
-    item4.width = itemWidth;
-    item4.height = itemHeight;
+    item4.mode = SINGLE;
     item4.isSubmenu = false;
-    item4.isExit = true; // 标记为返回
+    item4.isExit = true;
     menuItems.push_back(item4);
+
+    CreateButtons();
 }
 
 void MenuScene::InitMultiplayerMenu()
 {
     menuItems.clear();
 
-    int startX = 660;     // 居中
-    int startY = 360;     // 从上往下1/3处
-    int itemWidth = 600;  // 放大到2倍
-    int itemHeight = 100; // 放大到2倍
-    int spacing = 140;    // 放大到2倍
-
     // 本地双人
     MenuItem item1;
     item1.text = L"本地双人";
     item1.mode = LOCAL_PVP;
-    item1.x = startX;
-    item1.y = startY;
-    item1.width = itemWidth;
-    item1.height = itemHeight;
     item1.isSubmenu = false;
     item1.isExit = false;
     menuItems.push_back(item1);
@@ -210,10 +160,6 @@ void MenuScene::InitMultiplayerMenu()
     MenuItem item2;
     item2.text = L"人机对战";
     item2.mode = PVE;
-    item2.x = startX;
-    item2.y = startY + spacing;
-    item2.width = itemWidth;
-    item2.height = itemHeight;
     item2.isSubmenu = false;
     item2.isExit = false;
     menuItems.push_back(item2);
@@ -222,10 +168,6 @@ void MenuScene::InitMultiplayerMenu()
     MenuItem item3;
     item3.text = L"在线双人";
     item3.mode = NET_PVP;
-    item3.x = startX;
-    item3.y = startY + spacing * 2;
-    item3.width = itemWidth;
-    item3.height = itemHeight;
     item3.isSubmenu = false;
     item3.isExit = false;
     menuItems.push_back(item3);
@@ -233,14 +175,39 @@ void MenuScene::InitMultiplayerMenu()
     // 返回
     MenuItem item4;
     item4.text = L"返回";
-    item4.mode = SINGLE; // 不使用
-    item4.x = startX;
-    item4.y = startY + spacing * 3;
-    item4.width = itemWidth;
-    item4.height = itemHeight;
-    item4.isSubmenu = true; // 标记为特殊项
+    item4.mode = SINGLE;
+    item4.isSubmenu = true;
     item4.isExit = false;
     menuItems.push_back(item4);
+
+    CreateButtons();
+}
+
+void MenuScene::CreateButtons()
+{
+    buttons.clear();
+
+    // 计算布局参数
+    int startX = 660;                                            // 1920/2 - 300 居中
+    int startY = (currentMenu == SINGLEPLAYER_MENU) ? 270 : 360; // 单人菜单靠上
+    int itemWidth = 600;
+    int itemHeight = 100;
+    int spacing = (currentMenu == MAIN_MENU) ? 160 : 140; // 主菜单间距更大
+
+    // 为每个菜单项创建按钮
+    for (size_t i = 0; i < menuItems.size(); ++i)
+    {
+        int btnY = startY + static_cast<int>(i) * spacing;
+        auto btn = std::make_unique<UIButton>(startX, btnY, itemWidth, itemHeight,
+                                              menuItems[i].text, BUTTON_CAPSULE);
+
+        // 设置颜色（统一的莫兰迪配色）
+        btn->SetColors(RGB(219, 226, 239), RGB(85, 132, 188), RGB(63, 114, 175));
+        btn->SetTextColor(RGB(17, 45, 78), RGB(255, 255, 255));
+        btn->SetFontSize(48);
+
+        buttons.push_back(std::move(btn));
+    }
 }
 
 void MenuScene::Render()
@@ -251,11 +218,21 @@ void MenuScene::Render()
     // 绘制标题
     DrawTitle();
 
-    // 绘制所有菜单项
-    for (size_t i = 0; i < menuItems.size(); ++i)
+    // 绘制所有按钮
+    for (size_t i = 0; i < buttons.size(); ++i)
     {
-        bool isSelected = (i == static_cast<size_t>(selectedOption));
-        DrawMenuItem(menuItems[i], isSelected);
+        // 更新按钮状态（根据是否选中）
+        if (i == static_cast<size_t>(selectedOption))
+        {
+            // 使用键盘选中时，强制设为HOVER状态
+            buttons[i]->UpdateState(buttons[i]->GetX() + 1, buttons[i]->GetY() + 1, false);
+        }
+        else
+        {
+            buttons[i]->UpdateState(-1, -1, false); // NORMAL状态
+        }
+
+        buttons[i]->Draw();
     }
 
     // 绘制说明文字
@@ -264,100 +241,46 @@ void MenuScene::Render()
     EndBatchDraw();
 }
 
-void MenuScene::DrawMenuItem(const MenuItem &item, bool isSelected)
-{
-    // 定义颜色变量
-    COLORREF btnColor;
-    COLORREF textColor;
-    int radius = item.height / 2;
-
-    // 统一逻辑：所有按钮未悬停时为灰蓝色，悬停时变为亮蓝色
-    if (isSelected)
-    {
-        // 悬停状态：亮蓝色，模拟发光效果
-        btnColor = RGB(85, 132, 188);   // #5584BC
-        textColor = RGB(255, 255, 255); // #FFFFFF 纯白
-    }
-    else
-    {
-        // 常态：灰蓝色
-        btnColor = RGB(219, 226, 239); // #DBE2EF
-        textColor = RGB(17, 45, 78);   // #112D4E 深藏青
-    }
-
-    // 使用拼图法绘制胶囊形按钮（两个圆+一个矩形）
-    setfillcolor(btnColor);
-    setlinecolor(btnColor);                                                                      // 边框与填充色一致，消除黑边
-    solidcircle(item.x + radius, item.y + radius, radius);                                       // 左半圆
-    solidcircle(item.x + item.width - radius, item.y + radius, radius);                          // 右半圆
-    solidrectangle(item.x + radius, item.y, item.x + item.width - radius, item.y + item.height); // 中间矩形
-
-    // 绘制文字
-    LOGFONT f;
-    gettextstyle(&f);
-    f.lfHeight = 48;      // 所有按钮统一使用48px字体
-    f.lfWeight = FW_BOLD; // 加粗
-    wcscpy_s(f.lfFaceName, L"微软雅黑");
-    f.lfQuality = ANTIALIASED_QUALITY;
-    settextstyle(&f);
-    settextcolor(textColor);
-    setbkmode(TRANSPARENT);
-
-    int textWidth = textwidth(item.text.c_str());
-    int textHeight = textheight(item.text.c_str());
-    int textX = item.x + (item.width - textWidth) / 2;
-    int textY = item.y + (item.height - textHeight) / 2;
-
-    outtextxy(textX, textY, item.text.c_str());
-}
-
 void MenuScene::HandleMouseInput()
 {
     MOUSEMSG msg;
-    // 使用GetNextMouseMessage从缓冲区读取消息
     while (inputMgr.GetNextMouseMessage(msg))
     {
-        // 检测鼠标移动
+        // 检测鼠标移动 - 使用UIButton的IsMouseOver
         if (msg.uMsg == WM_MOUSEMOVE)
         {
-            bool foundHover = false;
-            for (size_t i = 0; i < menuItems.size(); ++i)
+            for (size_t i = 0; i < buttons.size(); ++i)
             {
-                if (IsMouseOver(menuItems[i], msg.x, msg.y))
+                if (buttons[i]->IsMouseOver(msg.x, msg.y))
                 {
                     selectedOption = static_cast<int>(i);
-                    foundHover = true;
                     break;
                 }
             }
-            // 如果鼠标不在任何按钮上，不改变选中状态
         }
 
         // 检测鼠标点击
         if (msg.uMsg == WM_LBUTTONDOWN)
         {
-            for (size_t i = 0; i < menuItems.size(); ++i)
+            for (size_t i = 0; i < buttons.size(); ++i)
             {
-                if (IsMouseOver(menuItems[i], msg.x, msg.y))
+                if (buttons[i]->IsMouseOver(msg.x, msg.y))
                 {
                     selectedOption = static_cast<int>(i);
                     MenuItem &item = menuItems[selectedOption];
 
                     if (item.isHistory)
                     {
-                        // 显示历史记录场景
                         ShowHistoryScene();
                     }
                     else if (item.isExit)
                     {
                         if (currentMenu == MAIN_MENU)
                         {
-                            // 主菜单的“退出游戏”：直接退出程序
                             exit(0);
                         }
                         else
                         {
-                            // 子菜单的“返回”：返回主菜单
                             currentMenu = MAIN_MENU;
                             InitMainMenu();
                             selectedOption = 0;
@@ -367,7 +290,6 @@ void MenuScene::HandleMouseInput()
                     {
                         if (currentMenu == MAIN_MENU)
                         {
-                            // 进入子菜单
                             if (item.mode == SINGLE)
                             {
                                 currentMenu = SINGLEPLAYER_MENU;
@@ -382,7 +304,6 @@ void MenuScene::HandleMouseInput()
                         }
                         else
                         {
-                            // 返回主菜单
                             currentMenu = MAIN_MENU;
                             InitMainMenu();
                             selectedOption = 0;
@@ -474,12 +395,6 @@ void MenuScene::HandleKeyboardInput()
     {
         exit(0);
     }
-}
-
-bool MenuScene::IsMouseOver(const MenuItem &item, int mouseX, int mouseY)
-{
-    return mouseX >= item.x && mouseX <= item.x + item.width &&
-           mouseY >= item.y && mouseY <= item.y + item.height;
 }
 
 void MenuScene::DrawTitle()

@@ -71,9 +71,9 @@ public:
 // ============== 按钮样式枚举 ==============
 enum ButtonStyle
 {
-    CAPSULE,      // 胶囊形（两端圆形）
-    ROUNDED_RECT, // 圆角矩形
-    RECT          // 直角矩形
+    BUTTON_CAPSULE,      // 胶囊形（两端圆形）
+    BUTTON_ROUNDED_RECT, // 圆角矩形
+    BUTTON_RECT          // 直角矩形
 };
 
 // ============== 按钮状态枚举 ==============
@@ -88,9 +88,9 @@ enum ButtonState
 // ============== 文本对齐枚举 ==============
 enum TextAlign
 {
-    LEFT,
-    CENTER,
-    RIGHT
+    TEXT_ALIGN_LEFT,
+    TEXT_ALIGN_CENTER,
+    TEXT_ALIGN_RIGHT
 };
 
 // ============== 通用按钮类 ==============
@@ -122,7 +122,7 @@ public:
     // ============== 构造函数 ==============
     UIButton(int x, int y, int width, int height,
              const std::wstring &text = L"",
-             ButtonStyle style = CAPSULE)
+             ButtonStyle style = BUTTON_CAPSULE)
         : UIComponent(x, y, width, height),
           text(text), style(style), state(NORMAL),
           normalColor(RGB(219, 226, 239)),    // #DBE2EF 默认灰蓝
