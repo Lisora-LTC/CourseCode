@@ -4,6 +4,7 @@
 // ============== 构造与析构 ==============
 InputManager::InputManager()
     : leftButtonLastState(false), rightButtonLastState(false),
+      leftButtonJustPressed(false), rightButtonJustPressed(false),
       lastMouseX(0), lastMouseY(0)
 {
 }
@@ -56,18 +57,18 @@ bool InputManager::GetLatestMouseMessage(MOUSEMSG &msg)
 
 bool InputManager::IsLeftButtonJustPressed()
 {
-    bool currentState = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-    bool justPressed = currentState && !leftButtonLastState;
-    leftButtonLastState = currentState;
-    return justPressed;
+    // 返回并清除标志（一次性消费）
+    bool result = leftButtonJustPressed;
+    leftButtonJustPressed = false;
+    return result;
 }
 
 bool InputManager::IsRightButtonJustPressed()
 {
-    bool currentState = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-    bool justPressed = currentState && !rightButtonLastState;
-    rightButtonLastState = currentState;
-    return justPressed;
+    // 返回并清除标志（一次性消费）
+    bool result = rightButtonJustPressed;
+    rightButtonJustPressed = false;
+    return result;
 }
 
 void InputManager::ClearMouseQueue()
@@ -141,11 +142,8 @@ void InputManager::Update()
         pair.second = GetKeyState(vkCode);
     }
 
-    // 更新鼠标按钮状态
-    leftButtonLastState = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-    rightButtonLastState = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-
     // 读取所有鼠标消息到缓冲区（不丢失任何消息）
+    // 使用 MouseHit() 是非阻塞的，不会卡住程序
     while (MouseHit())
     {
         MOUSEMSG msg = GetMouseMsg();
@@ -155,6 +153,26 @@ void InputManager::Update()
         lastMouseX = msg.x;
         lastMouseY = msg.y;
     }
+
+    // 检测鼠标按钮边沿（从未按下⇒按下）
+    bool newLeftState = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    bool newRightState = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+
+    // 边沿检测：当前按下 && 上一帧未按下
+    if (newLeftState && !leftButtonLastState)
+    {
+        leftButtonJustPressed = true;
+        OutputDebugStringA("[InputManager::Update] Left button JUST PRESSED detected!\n");
+    }
+
+    if (newRightState && !rightButtonLastState)
+    {
+        rightButtonJustPressed = true;
+    }
+
+    // 更新状态
+    leftButtonLastState = newLeftState;
+    rightButtonLastState = newRightState;
 }
 
 // ============== 私有方法 ==============

@@ -221,3 +221,113 @@ public:
         shadowOffset = offset;
     }
 };
+
+// ============== 状态指示点枚举 ==============
+enum DotStatus
+{
+    DOT_GREEN, // 绿色（等待中/在线）
+    DOT_RED,   // 红色（游戏中/离线）
+    DOT_GRAY,  // 灰色（满员/禁用）
+    DOT_BLUE,  // 蓝色（准备就绪）
+    DOT_YELLOW // 黄色（警告）
+};
+
+// ============== 状态指示点组件 ==============
+class UIStatusDot : public UIComponent
+{
+private:
+    int radius;
+    DotStatus status;
+
+public:
+    UIStatusDot(int x, int y, int radius = 8, DotStatus status = DOT_GRAY);
+
+    void Draw() override;
+
+    // 设置状态
+    void SetStatus(DotStatus newStatus) { status = newStatus; }
+    DotStatus GetStatus() const { return status; }
+};
+
+// ============== 玩家卡片组件 ==============
+class UIPlayerCard : public UIComponent
+{
+private:
+    bool isWaiting;           // 是否等待中
+    std::wstring playerName;  // 玩家昵称
+    std::wstring statusText;  // 状态文字
+    COLORREF avatarColor;     // 头像颜色
+    COLORREF borderColor;     // 边框颜色
+    COLORREF backgroundColor; // 背景颜色
+    int cornerRadius;         // 圆角半径
+    int avatarSize;           // 头像大小
+
+public:
+    UIPlayerCard(int x, int y, int width, int height);
+
+    void Draw() override;
+
+    // 设置为等待状态
+    void SetWaiting(bool waiting) { isWaiting = waiting; }
+
+    // 设置玩家信息
+    void SetPlayerInfo(const std::wstring &name, const std::wstring &status, COLORREF color)
+    {
+        playerName = name;
+        statusText = status;
+        avatarColor = color;
+        isWaiting = false;
+    }
+
+    // 设置颜色
+    void SetColors(COLORREF avatar, COLORREF border, COLORREF background)
+    {
+        avatarColor = avatar;
+        borderColor = border;
+        backgroundColor = background;
+    }
+
+    bool IsWaiting() const { return isWaiting; }
+
+private:
+    void DrawWaitingState();
+    void DrawPlayerInfo();
+};
+
+// ============== 加载动画类型 ==============
+enum AnimationType
+{
+    ANIM_BREATHING_CIRCLE, // 呼吸圆（圆环半径周期变化）
+    ANIM_RADAR_SCAN,       // 雷达扫描（扇形旋转）
+    ANIM_DOTS_JUMPING      // 三点跳动
+};
+
+// ============== 加载动画组件 ==============
+class UILoadingAnimation : public UIComponent
+{
+private:
+    int size;           // 动画大小
+    AnimationType type; // 动画类型
+    int animationFrame; // 当前帧数
+    int maxFrames;      // 总帧数（一个周期）
+    COLORREF color;     // 动画颜色
+
+public:
+    UILoadingAnimation(int x, int y, int size = 50, AnimationType type = ANIM_BREATHING_CIRCLE);
+
+    void Draw() override;
+
+    // 更新动画（每帧调用）
+    void Update() { animationFrame = (animationFrame + 1) % maxFrames; }
+
+    // 设置动画类型
+    void SetAnimationType(AnimationType newType) { type = newType; }
+
+    // 设置颜色
+    void SetColor(COLORREF newColor) { color = newColor; }
+
+private:
+    void DrawBreathingCircle(int centerX, int centerY);
+    void DrawRadarScan(int centerX, int centerY);
+    void DrawDotsJumping(int centerX, int centerY);
+};

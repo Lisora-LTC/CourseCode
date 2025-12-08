@@ -1,11 +1,28 @@
 #include <winsock2.h>
 #include "MenuScene.h"
 #include "HistoryScene.h"
+#include "NetworkModeScene.h"
+#include "RoomListScene.h"
+#include "LobbyScene.h"
+#include "NetworkManager.h"
 #include "Snake.h"
 #include "AIController.h"
 #include "GameMap.h"
 #include "FoodManager.h"
+#include "KeyboardController.h"
 #include "Renderer.h"
+
+// 辅助函数：将 wstring 转换为 UTF-8 编码的 string
+static std::string WstringToUtf8(const std::wstring &wstr)
+{
+    if (wstr.empty())
+        return std::string();
+
+    int sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(sizeNeeded, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.size(), &strTo[0], sizeNeeded, NULL, NULL);
+    return strTo;
+}
 #include <windows.h>
 #include <ctime>
 
@@ -16,7 +33,8 @@ MenuScene::MenuScene(bool manageWindow)
       backgroundAI1(nullptr), backgroundAI2(nullptr),
       backgroundMap1(nullptr), backgroundMap2(nullptr),
       backgroundFood1(nullptr), backgroundFood2(nullptr),
-      backgroundRenderer(nullptr), backgroundUpdateCounter(0)
+      backgroundRenderer(nullptr), backgroundUpdateCounter(0),
+      networkMgr(nullptr), playerName(L"Player")
 {
     srand(static_cast<unsigned int>(time(nullptr))); // 初始化随机数生成器
     InitMainMenu();
@@ -26,6 +44,13 @@ MenuScene::MenuScene(bool manageWindow)
 MenuScene::~MenuScene()
 {
     CleanupBackgroundSnake();
+
+    // 清理网络管理器
+    if (networkMgr)
+    {
+        delete networkMgr;
+        networkMgr = nullptr;
+    }
 
     // 只有当MenuScene管理窗口时才关闭
     if (manageWindow)
@@ -330,6 +355,14 @@ void MenuScene::HandleMouseInput()
                             selectedOption = 0;
                         }
                     }
+                    else if (item.mode == NET_PVP)
+                    {
+                        // 进入网络对战模式
+                        if (HandleNetworkMode())
+                        {
+                            menuRunning = false;
+                        }
+                    }
                     else
                     {
                         menuRunning = false;
@@ -403,6 +436,14 @@ void MenuScene::HandleKeyboardInput()
                 currentMenu = MAIN_MENU;
                 InitMainMenu();
                 selectedOption = 0;
+            }
+        }
+        else if (item.mode == NET_PVP)
+        {
+            // 进入网络对战模式
+            if (HandleNetworkMode())
+            {
+                menuRunning = false;
             }
         }
         else
@@ -707,5 +748,195 @@ void MenuScene::CleanupBackgroundSnake()
     {
         delete backgroundMap2;
         backgroundMap2 = nullptr;
+    }
+}
+
+// ============== 网络模式处理 ==============
+
+// 任务 7: 处理网络对战模式选择
+bool MenuScene::HandleNetworkMode()
+{
+    // 获取玩家昵称（如果未设置）
+    if (playerName.empty() || playerName == L"Player")
+    {
+        wchar_t nameBuffer[40] = L"玩家1";
+        if (!InputBox(nameBuffer, 40, L"请输入您的昵称：", L"联机对战", L"玩家1"))
+        {
+            // 用户取消
+            return false;
+        }
+        playerName = nameBuffer;
+        if (playerName.empty())
+        {
+            playerName = L"玩家1";
+        }
+    }
+
+    // 初始化网络管理器（如果还未初始化）
+    if (!networkMgr)
+    {
+        networkMgr = new NetworkManager();
+
+        // 显示连接提示
+        cleardevice();
+        settextcolor(RGB(17, 45, 78)); // COLOR_DARK
+        settextstyle(48, 0, L"微软雅黑");
+        setbkmode(TRANSPARENT);
+        const wchar_t *msg = L"正在连接服务器，请稍候...";
+        int msgWidth = textwidth(msg);
+        outtextxy(960 - msgWidth / 2, 500, msg);
+        FlushBatchDraw();
+
+        // 连接到本地服务器（会自动启动 serv.exe）
+        std::string serverIp = "127.0.0.1";
+        int serverPort = 10001;
+
+        // 将 wstring 转换为 UTF-8 编码的 string
+        std::string playerNameStr = WstringToUtf8(playerName);
+
+        if (!networkMgr->Connect(serverIp, serverPort, playerNameStr))
+        {
+            int result = MessageBoxW(GetHWnd(),
+                                     L"连接服务器失败！\n\n可能的原因：\n1. serv.exe 启动失败\n2. 端口 10001 被占用\n3. 防火墙阻止连接\n\n是否要继续（仅测试UI）？",
+                                     L"连接错误",
+                                     MB_YESNO | MB_ICONWARNING);
+
+            if (result != IDYES)
+            {
+                delete networkMgr;
+                networkMgr = nullptr;
+                return false;
+            }
+            // 用户选择继续，保留 networkMgr 但未连接状态
+        }
+    }
+
+    // 显示联机模式选择场景
+    NetworkModeScene modeScene(false);
+    NetworkModeAction action = modeScene.Show();
+
+    switch (action)
+    {
+    case NM_CREATE_ROOM:
+        // 任务 8: 创建房间流程
+        return CreateRoomFlow();
+
+    case NM_JOIN_ROOM:
+        // 任务 9: 加入房间流程
+        return JoinRoomFlow();
+
+    case NM_BACK:
+        // 返回菜单
+        return false;
+
+    default:
+        return false;
+    }
+}
+
+// 任务 8: 创建房间流程
+bool MenuScene::CreateRoomFlow()
+{
+    if (!networkMgr)
+    {
+        MessageBoxW(GetHWnd(), L"网络未初始化！", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // 输入房间名
+    wchar_t roomNameBuffer[40] = L"我的房间";
+    if (!InputBox(roomNameBuffer, 40, L"请输入房间名称：", L"创建房间", L"我的房间"))
+    {
+        // 用户取消
+        return false;
+    }
+
+    std::wstring roomName = roomNameBuffer;
+    if (roomName.empty())
+    {
+        roomName = L"我的房间";
+    } // 创建房间
+    uint32_t roomId = 0;
+    std::string roomNameStr = WstringToUtf8(roomName);
+
+    if (!networkMgr->CreateRoom(roomNameStr, roomId))
+    {
+        MessageBoxW(GetHWnd(), L"创建房间失败！", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // 进入大厅（房主模式）
+    LobbyScene lobby(networkMgr, roomId, roomName, playerName, true, false);
+    bool shouldStart = lobby.Show();
+
+    if (shouldStart)
+    {
+        // 任务 11: 双方准备好，开始游戏
+        // TODO: 启动网络对战游戏
+        // GameManager::StartNetworkGame(networkMgr);
+        MessageBoxW(GetHWnd(), L"游戏即将开始！（网络对战功能待实现）", L"提示", MB_OK | MB_ICONINFORMATION);
+        return true;
+    }
+    else
+    {
+        // 退出房间
+        networkMgr->LeaveRoom();
+        return false;
+    }
+}
+
+// 任务 9: 加入房间流程
+bool MenuScene::JoinRoomFlow()
+{
+    if (!networkMgr)
+    {
+        MessageBoxW(GetHWnd(), L"网络未初始化！", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // 显示房间列表
+    RoomListScene roomList(networkMgr, false);
+    bool joinSuccess = roomList.Show();
+
+    if (!joinSuccess)
+    {
+        // 用户取消或加入失败
+        return false;
+    }
+
+    uint32_t roomId = roomList.GetJoinedRoomId();
+
+    // 获取房间信息
+    std::vector<RoomInfo> rooms;
+    networkMgr->GetRoomList(rooms);
+
+    std::wstring roomName = L"房间";
+    for (const auto &room : rooms)
+    {
+        if (room.roomId == roomId)
+        {
+            int roomNameLen = (int)wcslen(room.roomName);
+            roomName = std::wstring(room.roomName, room.roomName + roomNameLen);
+            break;
+        }
+    }
+
+    // 进入大厅（客人模式）
+    LobbyScene lobby(networkMgr, roomId, roomName, playerName, false, false);
+    bool shouldStart = lobby.Show();
+
+    if (shouldStart)
+    {
+        // 任务 11: 双方准备好，开始游戏
+        // TODO: 启动网络对战游戏
+        // GameManager::StartNetworkGame(networkMgr);
+        MessageBoxW(GetHWnd(), L"游戏即将开始！（网络对战功能待实现）", L"提示", MB_OK | MB_ICONINFORMATION);
+        return true;
+    }
+    else
+    {
+        // 退出房间
+        networkMgr->LeaveRoom();
+        return false;
     }
 }

@@ -224,5 +224,225 @@ void UICard::Draw()
 
     // 绘制边框
     setlinecolor(borderColor);
+    setlinestyle(PS_SOLID, 2);
     roundrect(x, y, x + width, y + height, cornerRadius, cornerRadius);
+}
+
+// ============== UIStatusDot 实现 ==============
+
+UIStatusDot::UIStatusDot(int x, int y, int radius, DotStatus status)
+    : UIComponent(x - radius, y - radius, radius * 2, radius * 2),
+      radius(radius), status(status)
+{
+}
+
+void UIStatusDot::Draw()
+{
+    if (!visible)
+        return;
+
+    COLORREF dotColor;
+    switch (status)
+    {
+    case DOT_GREEN:
+        dotColor = RGB(76, 175, 80); // 绿色
+        break;
+    case DOT_RED:
+        dotColor = RGB(244, 67, 54); // 红色
+        break;
+    case DOT_GRAY:
+        dotColor = RGB(158, 158, 158); // 灰色
+        break;
+    case DOT_BLUE:
+        dotColor = RGB(63, 114, 175); // 蓝色
+        break;
+    case DOT_YELLOW:
+        dotColor = RGB(255, 193, 7); // 黄色
+        break;
+    default:
+        dotColor = RGB(158, 158, 158);
+        break;
+    }
+
+    setfillcolor(dotColor);
+    setlinecolor(dotColor);
+    int centerX = x + radius;
+    int centerY = y + radius;
+    solidcircle(centerX, centerY, radius);
+}
+
+// ============== UIPlayerCard 实现 ==============
+
+UIPlayerCard::UIPlayerCard(int x, int y, int width, int height)
+    : UIComponent(x, y, width, height),
+      isWaiting(true),
+      playerName(L""),
+      statusText(L"等待中..."),
+      avatarColor(RGB(63, 114, 175)),
+      borderColor(RGB(219, 226, 239)),
+      backgroundColor(RGB(249, 247, 247)),
+      cornerRadius(15),
+      avatarSize(80)
+{
+}
+
+void UIPlayerCard::Draw()
+{
+    if (!visible)
+        return;
+
+    // 绘制卡片背景
+    setfillcolor(backgroundColor);
+    setlinecolor(borderColor);
+    setlinestyle(PS_SOLID, 3);
+    solidroundrect(x, y, x + width, y + height, cornerRadius, cornerRadius);
+    roundrect(x, y, x + width, y + height, cornerRadius, cornerRadius);
+
+    if (isWaiting)
+    {
+        // 绘制等待状态
+        DrawWaitingState();
+    }
+    else
+    {
+        // 绘制玩家信息
+        DrawPlayerInfo();
+    }
+}
+
+void UIPlayerCard::DrawWaitingState()
+{
+    // 绘制虚线边框效果
+    setlinecolor(RGB(200, 200, 200));
+    setlinestyle(PS_DASH, 2);
+    roundrect(x, y, x + width, y + height, cornerRadius, cornerRadius);
+
+    // 绘制占位头像（空心圆）
+    int avatarCenterX = x + width / 2;
+    int avatarCenterY = y + 100;
+    setlinecolor(RGB(200, 200, 200));
+    setlinestyle(PS_SOLID, 3);
+    circle(avatarCenterX, avatarCenterY, avatarSize / 2);
+
+    // 绘制等待文字
+    settextcolor(RGB(150, 150, 150));
+    settextstyle(32, 0, L"微软雅黑");
+    setbkmode(TRANSPARENT);
+
+    int textWidth = textwidth(statusText.c_str());
+    outtextxy(avatarCenterX - textWidth / 2, avatarCenterY + 80, statusText.c_str());
+}
+
+void UIPlayerCard::DrawPlayerInfo()
+{
+    // 绘制头像（实心方块）
+    int avatarCenterX = x + width / 2;
+    int avatarCenterY = y + 100;
+    setfillcolor(avatarColor);
+    setlinecolor(avatarColor);
+    int halfSize = avatarSize / 2;
+    solidrectangle(avatarCenterX - halfSize, avatarCenterY - halfSize,
+                   avatarCenterX + halfSize, avatarCenterY + halfSize);
+
+    // 绘制玩家昵称
+    settextcolor(RGB(17, 45, 78));
+    settextstyle(36, 0, L"微软雅黑");
+    setbkmode(TRANSPARENT);
+
+    int nameWidth = textwidth(playerName.c_str());
+    outtextxy(avatarCenterX - nameWidth / 2, avatarCenterY + 80, playerName.c_str());
+
+    // 绘制状态文字
+    COLORREF statusColor = (statusText == L"已准备") ? RGB(76, 175, 80) : RGB(158, 158, 158);
+    settextcolor(statusColor);
+    settextstyle(28, 0, L"微软雅黑");
+
+    int statusWidth = textwidth(statusText.c_str());
+    outtextxy(avatarCenterX - statusWidth / 2, avatarCenterY + 130, statusText.c_str());
+}
+
+// ============== UILoadingAnimation 实现 ==============
+
+UILoadingAnimation::UILoadingAnimation(int x, int y, int size, AnimationType type)
+    : UIComponent(x - size, y - size, size * 2, size * 2),
+      size(size), type(type), animationFrame(0), maxFrames(60),
+      color(RGB(63, 114, 175))
+{
+}
+
+void UILoadingAnimation::Draw()
+{
+    if (!visible)
+        return;
+
+    int centerX = x + width / 2;
+    int centerY = y + height / 2;
+
+    switch (type)
+    {
+    case ANIM_BREATHING_CIRCLE:
+        DrawBreathingCircle(centerX, centerY);
+        break;
+    case ANIM_RADAR_SCAN:
+        DrawRadarScan(centerX, centerY);
+        break;
+    case ANIM_DOTS_JUMPING:
+        DrawDotsJumping(centerX, centerY);
+        break;
+    }
+
+    // 更新动画帧
+    animationFrame = (animationFrame + 1) % maxFrames;
+}
+
+void UILoadingAnimation::DrawBreathingCircle(int centerX, int centerY)
+{
+    // 呼吸圆：半径周期变化
+    float phase = (float)animationFrame / maxFrames * 2 * 3.14159f;
+    int minRadius = size / 2;
+    int maxRadius = size;
+    int currentRadius = minRadius + (int)((maxRadius - minRadius) * (0.5f + 0.5f * sin(phase)));
+
+    setlinecolor(color);
+    setlinestyle(PS_SOLID, 3);
+    circle(centerX, centerY, currentRadius);
+}
+
+void UILoadingAnimation::DrawRadarScan(int centerX, int centerY)
+{
+    // 雷达扫描：扇形旋转
+    float startAngle = (float)animationFrame / maxFrames * 2 * 3.14159f;
+    float sweepAngle = 3.14159f / 3; // 60度扇形
+
+    setfillcolor(color);
+    setlinecolor(color);
+
+    // 绘制扇形（使用 pie 函数）
+    int left = centerX - size;
+    int top = centerY - size;
+    int right = centerX + size;
+    int bottom = centerY + size;
+
+    // EasyX 的 pie 函数参数：左上右下坐标 + 起始角度 + 终止角度
+    solidpie(left, top, right, bottom, startAngle, startAngle + sweepAngle);
+}
+
+void UILoadingAnimation::DrawDotsJumping(int centerX, int centerY)
+{
+    // 三点跳动：小圆点垂直位置变化
+    int dotRadius = 8;
+    int dotSpacing = 25;
+
+    for (int i = 0; i < 3; i++)
+    {
+        float phase = (float)(animationFrame + i * 20) / maxFrames * 2 * 3.14159f;
+        int offsetY = (int)(10 * sin(phase));
+
+        int dotX = centerX - dotSpacing + i * dotSpacing;
+        int dotY = centerY + offsetY;
+
+        setfillcolor(color);
+        setlinecolor(color);
+        solidcircle(dotX, dotY, dotRadius);
+    }
 }

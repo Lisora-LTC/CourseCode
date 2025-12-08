@@ -17,6 +17,10 @@ private:
     bool leftButtonLastState;
     bool rightButtonLastState;
 
+    // 鼠标按钮边沿检测标志（在 Update 中设置，在查询后清除）
+    bool leftButtonJustPressed;
+    bool rightButtonJustPressed;
+
     // 鼠标消息缓冲队列（用于不丢失点击事件）
     std::vector<MOUSEMSG> mouseMessageBuffer;
 

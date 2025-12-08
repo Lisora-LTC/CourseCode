@@ -12,6 +12,10 @@ class AIController;
 class GameMap;
 class FoodManager;
 class Renderer;
+class NetworkManager;
+class NetworkModeScene;
+class RoomListScene;
+class LobbyScene;
 
 // ============== 菜单场景 ==============
 // 处理进入游戏前的菜单界面
@@ -56,6 +60,10 @@ private:
     FoodManager *backgroundFood2; // 食物管理器2
     Renderer *backgroundRenderer; // 渲染器
     int backgroundUpdateCounter;  // 更新计数器
+
+    // 网络相关
+    NetworkManager *networkMgr; // 网络管理器
+    std::wstring playerName;    // 玩家昵称
 
 public:
     // ============== 构造与析构 ==============
@@ -123,6 +131,24 @@ private:
      * @brief 显示历史记录场景
      */
     void ShowHistoryScene();
+
+    /**
+     * @brief 处理网络对战模式选择
+     * @return 是否成功开始游戏
+     */
+    bool HandleNetworkMode();
+
+    /**
+     * @brief 创建房间流程
+     * @return 是否成功开始游戏
+     */
+    bool CreateRoomFlow();
+
+    /**
+     * @brief 加入房间流程
+     * @return 是否成功开始游戏
+     */
+    bool JoinRoomFlow();
 
     // ============== 背景蛇系统 ==============
     /**

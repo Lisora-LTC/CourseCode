@@ -247,3 +247,76 @@ public:
 private:
     Utils() = delete; // 禁止实例化
 };
+
+// ============== 网络房间相关数据结构 ==============
+
+// 房间状态枚举
+enum RoomStatus
+{
+    ROOM_WAITING, // 等待中（可加入）
+    ROOM_PLAYING, // 游戏中（不可加入）
+    ROOM_FULL     // 已满员（不可加入）
+};
+
+// 玩家状态枚举
+enum PlayerStatus
+{
+    PLAYER_NOT_READY, // 未准备
+    PLAYER_READY,     // 已准备
+    PLAYER_OFFLINE    // 离线
+};
+
+// 房间信息结构体
+struct RoomInfo
+{
+    uint32_t roomId;      // 房间ID（唯一标识符）
+    wchar_t roomName[40]; // 房间名称
+    wchar_t hostName[40]; // 房主昵称
+    RoomStatus status;    // 房间状态
+    int currentPlayers;   // 当前人数
+    int maxPlayers;       // 最大人数（默认2）
+
+    RoomInfo()
+        : roomId(0), status(ROOM_WAITING), currentPlayers(0), maxPlayers(2)
+    {
+        wmemset(roomName, 0, sizeof(roomName) / sizeof(wchar_t));
+        wmemset(hostName, 0, sizeof(hostName) / sizeof(wchar_t));
+    }
+};
+
+// 大厅玩家信息结构体
+struct LobbyPlayerInfo
+{
+    wchar_t nickname[40]; // 玩家昵称
+    PlayerStatus status;  // 玩家状态
+    COLORREF avatarColor; // 头像颜色
+    bool isHost;          // 是否为房主
+
+    LobbyPlayerInfo()
+        : status(PLAYER_NOT_READY),
+          avatarColor(RGB(63, 114, 175)), // 默认亮蓝色
+          isHost(false)
+    {
+        wmemset(nickname, 0, sizeof(nickname) / sizeof(wchar_t));
+    }
+
+    LobbyPlayerInfo(const wchar_t *name, PlayerStatus s, COLORREF color, bool host = false)
+        : status(s), avatarColor(color), isHost(host)
+    {
+        wcsncpy_s(nickname, name, sizeof(nickname) / sizeof(wchar_t) - 1);
+    }
+};
+
+// 大厅状态数据包（用于同步大厅状态）
+struct LobbyUpdatePacket
+{
+    uint32_t roomId;         // 房间ID
+    LobbyPlayerInfo player1; // 玩家1（房主）
+    LobbyPlayerInfo player2; // 玩家2（客人）
+    bool player2Connected;   // 玩家2是否已连接
+    bool bothReady;          // 双方是否都准备好
+    char messageType;        // 消息类型 ('J'=加入, 'L'=离开, 'R'=准备, 'S'=开始游戏)
+
+    LobbyUpdatePacket()
+        : roomId(0), player2Connected(false), bothReady(false), messageType('U') {}
+};
