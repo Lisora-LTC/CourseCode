@@ -9,7 +9,8 @@
 // ============== 构造与析构 ==============
 GameManager::GameManager()
     : playerSnake(nullptr), gameMap(nullptr), foodManager(nullptr),
-      renderer(nullptr), networkManager(nullptr),
+      renderer(nullptr), networkManager(nullptr), isHost(false),
+      ownsNetworkManager(true),
       currentState(MENU), currentMode(SINGLE),
       score(0), highScore(0), lives(3), gameTime(0), wallCollisions(0),
       player1Score(0), player2Score(0), player1Time(0), player2Time(0),
@@ -21,6 +22,27 @@ GameManager::GameManager()
 GameManager::~GameManager()
 {
     Cleanup();
+}
+
+// ============== 静态启动方法 ==============
+void GameManager::StartNetworkGame(NetworkManager *networkMgr, bool isHost)
+{
+    // 创建游戏管理器实例
+    GameManager *game = new GameManager();
+
+    // 设置网络管理器（不拥有所有权，由 MenuScene 管理）
+    game->networkManager = networkMgr;
+    game->ownsNetworkManager = false; // ✅ 不拥有所有权
+    game->isHost = isHost;
+
+    // 初始化网络对战模式
+    game->Init(NET_PVP);
+
+    // 运行游戏
+    game->Run();
+
+    // 清理（游戏结束后，但不会删除 networkManager）
+    delete game;
 }
 
 // ============== 初始化 ==============
@@ -44,7 +66,12 @@ void GameManager::Cleanup()
     delete gameMap;
     delete foodManager;
     delete renderer;
-    delete networkManager;
+
+    // ✅ 只在拥有所有权时才删除 networkManager
+    if (ownsNetworkManager)
+    {
+        delete networkManager;
+    }
 
     gameMap = nullptr;
     foodManager = nullptr;
@@ -262,6 +289,17 @@ void GameManager::GameOver()
             // 多人游戏：判断玩家是否胜利，显示双人得分和时长
             bool playerWon = (playerSnake && playerSnake->IsAlive());
 
+            // 网络模式：检查是否收到对手的游戏结束消息
+            if (currentMode == NET_PVP && networkManager)
+            {
+                NetworkManager::ReceivedLobbyState lobbyState;
+                if (networkManager->GetReceivedLobbyState(lobbyState) && lobbyState.gameOver)
+                {
+                    // 根据对手的消息判断胜负（对手赢了我就输了）
+                    playerWon = !lobbyState.opponentWon;
+                }
+            }
+
             // 记录双人游戏结束时的得分和时长
             if (snakes.size() >= 2)
             {
@@ -309,6 +347,12 @@ void GameManager::GameOver()
     {
         // 更新输入缓冲
         inputMgr.Update();
+
+        // ✅ 网络模式：持续更新网络管理器，清理消息队列
+        if (currentMode == NET_PVP && networkManager)
+        {
+            networkManager->Update();
+        }
 
         // 检测鼠标点击（使用缓冲系统）
         MOUSEMSG msg;
@@ -393,8 +437,9 @@ void GameManager::HandleInput()
         isRunning = false;
     }
 
-    // 检测退出按钮点击（使用缓冲系统，不丢失点击）
-    if (renderer)
+    // 检测退出按钮点击（仅单人模式，使用缓冲系统，不丢失点击）
+    bool isMultiplayerMode = (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE);
+    if (!isMultiplayerMode && renderer)
     {
         int btnX, btnY, btnWidth, btnHeight;
         renderer->GetExitButtonBounds(btnX, btnY, btnWidth, btnHeight);
@@ -422,10 +467,37 @@ void GameManager::CacheGameInput()
                     if (kbCtrl)
                     {
                         kbCtrl->CacheInput();
+
+                        // 网络模式：发送本地输入到对手
+                        if (networkManager && snake == playerSnake)
+                        {
+                            Direction currentDir = snake->GetDirection();
+                            SendInputToNetwork(currentDir);
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+void GameManager::SendInputToNetwork(Direction dir)
+{
+    if (!networkManager)
+        return;
+
+    static Direction lastSentDir = NONE;
+
+    // 仅在方向改变时发送（避免重复消息）
+    if (dir != lastSentDir && dir != NONE)
+    {
+        GameCommand cmd;
+        cmd.cmdType = CMD_INPUT;
+        cmd.data = (int)dir; // 将方向转为整数（UP=0, DOWN=1, LEFT=2, RIGHT=3）
+        cmd.uid = networkManager->GetMyUID();
+
+        networkManager->SendBinaryMessage((char *)&cmd, sizeof(GameCommand));
+        lastSentDir = dir;
     }
 }
 void GameManager::CheckCollisions()
@@ -564,6 +636,8 @@ void GameManager::HandleFood()
 
         if (foodManager->HasFoodAt(head))
         {
+            // 获取食物信息
+            Food *food = foodManager->GetFoodAt(head);
             int points = foodManager->ConsumeFood(head);
 
             // 只有玩家蛇的分数计入总分
@@ -572,8 +646,18 @@ void GameManager::HandleFood()
                 score += points;
             }
 
-            // 所有蛇都能生长
-            snake->Grow();
+            // 处理食物效果
+            if (food && food->type == SPEED_UP)
+            {
+                // 加速食物：连续移动两次
+                snake->Grow();
+                snake->Move();
+            }
+            else
+            {
+                // 普通食物：正常生长
+                snake->Grow();
+            }
         }
     }
 
@@ -744,8 +828,48 @@ void GameManager::InitPVEMode()
 
 void GameManager::InitNetworkPVPMode()
 {
-    // 网络对战模式（暂时未实现，使用本地双人逻辑）
-    InitLocalPVPMode();
+    // 创建渲染器（不创建窗口，由main管理）
+    renderer = new Renderer();
+    int totalWidth = 1920;  // 使用1920全屏宽度
+    int totalHeight = 1080; // 使用1080全屏高度
+    renderer->Init(totalWidth, totalHeight, L"贪吃蛇 - 网络对战", false);
+
+    // 创建地图
+    gameMap = new GameMap();
+
+    // 创建食物管理器
+    foodManager = new FoodManager();
+
+    // 创建本地玩家蛇（键盘控制）
+    Point localStartPos(MAP_WIDTH / 3, MAP_HEIGHT / 2);
+    Snake *localSnake = new Snake(0, localStartPos, LEFT, RGB(0, 255, 0));
+    localSnake->SetController(new KeyboardController(0)); // WASD 控制
+    snakes.push_back(localSnake);
+    playerSnake = localSnake;
+
+    // 创建远程玩家蛇（网络控制）
+    Point remoteStartPos(MAP_WIDTH * 2 / 3, MAP_HEIGHT / 2);
+    Snake *remoteSnake = new Snake(1, remoteStartPos, RIGHT, RGB(255, 255, 0));
+    remoteSnake->SetController(new NetworkController(networkManager)); // 网络控制
+    snakes.push_back(remoteSnake);
+
+    // 生成初始食物（仅房主生成，后续同步）
+    if (isHost)
+    {
+        foodManager->SpawnFood(*playerSnake, *gameMap);
+        int extraCount = Utils::RandomInt(1, 3);
+        foodManager->SpawnFoodCount(extraCount, *playerSnake, *gameMap);
+    }
+
+    // 初始化游戏状态
+    score = 0;
+    lives = 3;
+    gameTime = 0;
+    wallCollisions = 0;
+    player1Score = 0;
+    player2Score = 0;
+    player1Time = 0;
+    player2Time = 0;
 }
 
 void GameManager::InitByGameMode(GameMode mode)
@@ -819,17 +943,28 @@ bool GameManager::ShouldGameEnd()
     if (currentMode == LOCAL_PVP || currentMode == NET_PVP || currentMode == PVE)
     {
         int aliveCount = 0;
+        Snake *winner = nullptr;
         for (auto snake : snakes)
         {
             if (snake && snake->IsAlive())
             {
                 aliveCount++;
+                winner = snake;
             }
         }
 
         // 如果只剩一条蛇或所有蛇都死了，游戏结束
         if (aliveCount <= 1)
         {
+            // 网络模式：发送游戏结束消息
+            if (currentMode == NET_PVP && networkManager)
+            {
+                GameCommand cmd;
+                cmd.cmdType = CMD_GAME_OVER;
+                cmd.data = (winner == playerSnake) ? 1 : 0; // 1=本地胜利，0=本地失败
+                cmd.uid = networkManager->GetMyUID();
+                networkManager->SendBinaryMessage((char *)&cmd, sizeof(GameCommand));
+            }
             return true;
         }
 

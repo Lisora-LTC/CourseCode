@@ -67,50 +67,23 @@ void FoodManager::SpawnFoodAt(const Point &pos, FoodType type)
 
 Food FoodManager::GenerateRandomFood(const Point &pos)
 {
-    // 生成随机类型的食物
-    // 普通食物70%，加分食物20%，特殊食物10%
+    // 只生成普通食物(90%)和加速食物(10%)
     int rand = Utils::RandomInt(1, 100);
 
     FoodType type;
     int score;
 
-    if (rand <= 70)
+    if (rand <= 90)
     {
+        // 90% 概率生成普通食物
         type = NORMAL_FOOD;
         score = 10;
     }
-    else if (rand <= 90)
-    {
-        type = BONUS_FOOD;
-        score = 20;
-    }
     else
     {
-        // 特殊食物随机
-        int special = Utils::RandomInt(1, 4);
-        switch (special)
-        {
-        case 1:
-            type = MAGIC_FRUIT;
-            score = 50;
-            break;
-        case 2:
-            type = POISON_FRUIT;
-            score = -100;
-            break;
-        case 3:
-            type = SPEED_UP;
-            score = 5;
-            break;
-        case 4:
-            type = SPEED_DOWN;
-            score = 5;
-            break;
-        default:
-            type = NORMAL_FOOD;
-            score = 10;
-            break;
-        }
+        // 10% 概率生成加速食物
+        type = SPEED_UP;
+        score = 5;
     }
 
     return Food(pos, type, score);

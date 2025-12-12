@@ -42,6 +42,7 @@ private:
     bool gameStarting;    // 游戏是否即将开始
     bool shouldExitLobby; // 是否退出大厅
     bool shouldStartGame; // 是否开始游戏
+    int protectionTimer;  // 保护计时器，防止刚进大厅就开始游戏（残留消息）
 
     // 颜色定义（复用统一配色）
     const COLORREF COLOR_BG = RGB(249, 247, 247);     // #F9F7F7 米白
@@ -66,9 +67,11 @@ public:
      * @param playerName 本地玩家昵称
      * @param isHost 是否为房主
      * @param manageWindow 是否管理窗口生命周期
+     * @param isReturningFromGame 是否从游戏返回（如果是，P2 不发送 HELLO）
      */
     LobbyScene(NetworkManager *netMgr, uint32_t roomId, const std::wstring &roomName,
-               const std::wstring &playerName, bool isHost, bool manageWindow = false);
+               const std::wstring &playerName, bool isHost, bool manageWindow = false,
+               bool isReturningFromGame = false);
     ~LobbyScene();
 
     // ============== 主方法 ==============
@@ -82,6 +85,11 @@ public:
      * @brief 是否应该开始游戏
      */
     bool ShouldStartGame() const { return shouldStartGame; }
+
+    /**
+     * @brief 重置大厅状态，用于游戏结束后返回大厅
+     */
+    void ResetForNewRound();
 
 private:
     // ============== 初始化 ==============

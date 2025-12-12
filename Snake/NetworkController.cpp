@@ -9,8 +9,8 @@ NetworkController::NetworkController()
 {
 }
 
-NetworkController::NetworkController(NetworkManager *netMgr, int oppId)
-    : networkMgr(netMgr), cachedDirection(NONE), opponentId(oppId)
+NetworkController::NetworkController(NetworkManager *netMgr)
+    : networkMgr(netMgr), cachedDirection(NONE), opponentId(-1)
 {
 }
 
@@ -57,16 +57,9 @@ void NetworkController::Init()
 // ============== 私有方法 ==============
 Direction NetworkController::FetchDirectionFromNetwork()
 {
-    // 从网络管理器的接收队列中获取对手的方向
+    // 从网络管理器获取远程输入
     if (networkMgr == nullptr)
         return NONE;
 
-    // 调用网络管理器的接口获取方向
-    // 注意：这里需要NetworkManager实现相应的接口
-    // 例如：Direction dir = networkMgr->GetOpponentDirection(opponentId);
-
-    // 暂时返回NONE，等待NetworkManager实现
-    // TODO: 实现网络管理器的GetOpponentDirection接口后，替换这里
-
-    return NONE;
+    return networkMgr->GetRemoteDirection();
 }

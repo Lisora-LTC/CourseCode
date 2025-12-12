@@ -149,6 +149,16 @@ void NetworkManager::SendTextMessage(const std::string &msg)
     client->sendMsg(msg.c_str());
 }
 
+bool NetworkManager::SendBinaryMessage(const char *data, int len)
+{
+    if (!connected || !client || !inRoom)
+    {
+        return false;
+    }
+
+    return client->sendBinaryMsg(data, len);
+}
+
 // ============== 数据接收 ==============
 Direction NetworkManager::GetOpponentInput()
 {
@@ -577,20 +587,116 @@ void NetworkManager::ProcessRoomMessages()
         for (uint32_t i = 0; i < msgPackage.msgNum; ++i)
         {
             NetworkHelper::msg_t *msg = msgPackage.msgs[i];
-            if (msg && msg->msgContent && msg->msgLen >= sizeof(GameCommand))
+            if (!msg || !msg->msgContent || msg->msgLen < sizeof(int))
             {
-                // 解析为 GameCommand 结构体
-                GameCommand *cmd = (GameCommand *)msg->msgContent;
+                continue;
+            }
 
-                // 【关键】检查 UID - 如果是自己发的消息，直接跳过
-                if (cmd->uid == myUID)
+            // 先读取包类型（第一个 int）
+            int *packetType = (int *)msg->msgContent;
+
+            // 【处理 HELLO 包】P2 入场通知
+            if (*packetType == CMD_HELLO && msg->msgLen >= sizeof(HelloPacket))
+            {
+                HelloPacket *hello = (HelloPacket *)msg->msgContent;
+
+                // 检查 UID - 忽略自己的消息
+                if (hello->uid == myUID)
                 {
-                    // 这是我自己发的消息被服务器广播回来了，忽略
                     continue;
                 }
 
-                // 【关键】这是对手发的消息！
-                // 记录对手的 UID（第一次收到时）
+                // 记录对手 UID
+                if (opponentUID == 0)
+                {
+                    opponentUID = hello->uid;
+                }
+
+                // 【房主专用】收到 P2 的 HELLO，标记 P2 已连接
+                if (isHost)
+                {
+                    wchar_t p2Name[40] = {0};
+                    MultiByteToWideChar(CP_UTF8, 0, hello->name, -1, p2Name, 40);
+                    std::wstring p2NameWstr(p2Name);
+                    playerReadyStates[p2NameWstr] = false; // 初始未准备
+
+                    // 更新接收状态
+                    receivedLobbyState.hasUpdate = true;
+                    receivedLobbyState.p2Connected = true;
+                    wcsncpy_s(receivedLobbyState.p2Name, 40, p2Name, 39);
+                }
+                continue;
+            }
+
+            // 【处理 LOBBY_SYNC 包】房主心跳广播
+            if (*packetType == CMD_LOBBY_SYNC && msg->msgLen >= sizeof(LobbyStatePacket))
+            {
+                LobbyStatePacket *state = (LobbyStatePacket *)msg->msgContent;
+
+                // 检查 UID - 忽略自己的消息
+                if (state->uid == myUID)
+                {
+                    continue;
+                }
+
+                // 【客机专用】收到房主的状态同步
+                if (!isHost)
+                {
+                    // 更新房主（P1）状态
+                    wchar_t p1Name[40] = {0};
+                    MultiByteToWideChar(CP_UTF8, 0, state->p1_name, -1, p1Name, 40);
+                    std::wstring p1NameWstr(p1Name);
+                    playerReadyStates[p1NameWstr] = state->p1_ready;
+
+                    // 更新自己（P2）的状态（从房主确认）
+                    wchar_t p2Name[40] = {0};
+                    MultiByteToWideChar(CP_UTF8, 0, state->p2_name, -1, p2Name, 40);
+                    std::wstring p2NameWstr(p2Name);
+                    playerReadyStates[p2NameWstr] = state->p2_ready;
+
+                    // 更新接收状态 - 填充完整的LobbyStatePacket数据
+                    receivedLobbyState.hasUpdate = true;
+                    receivedLobbyState.receivedLobbySync = true;
+                    receivedLobbyState.p1Exist = state->p1_exist;
+                    receivedLobbyState.p1Ready = state->p1_ready;
+                    receivedLobbyState.p2Exist = state->p2_exist;
+                    receivedLobbyState.p2Ready = state->p2_ready;
+                    strncpy_s(receivedLobbyState.p1Name, 40, state->p1_name, 39);
+                    strncpy_s(receivedLobbyState.p2NameUtf8, 40, state->p2_name, 39);
+                }
+                continue;
+            }
+
+            // 【处理 EXIT 包】玩家退出通知
+            if (*packetType == CMD_EXIT && msg->msgLen >= sizeof(ExitPacket))
+            {
+                ExitPacket *exitPkg = (ExitPacket *)msg->msgContent;
+
+                // 检查 UID - 忽略自己的消息
+                if (exitPkg->uid == myUID)
+                {
+                    continue;
+                }
+
+                // ✅ 收到对手的退出通知
+                receivedLobbyState.hasUpdate = true;
+                receivedLobbyState.exitReceived = true;
+
+                continue;
+            }
+
+            // 【处理 GameCommand 包】准备、开始等指令
+            if (msg->msgLen >= sizeof(GameCommand))
+            {
+                GameCommand *cmd = (GameCommand *)msg->msgContent;
+
+                // 检查 UID - 忽略自己的消息
+                if (cmd->uid == myUID)
+                {
+                    continue;
+                }
+
+                // 记录对手 UID
                 if (opponentUID == 0)
                 {
                     opponentUID = cmd->uid;
@@ -607,19 +713,53 @@ void NetworkManager::ProcessRoomMessages()
                 case CMD_READY:
                     // 对手准备了
                     playerReadyStates[senderNameWstr] = true;
+
+                    // 【关键修复】P1 收到 P2 的准备消息时，立即更新状态
+                    if (isHost)
+                    {
+                        receivedLobbyState.hasUpdate = true;
+                        receivedLobbyState.p2Ready = true;
+                    }
                     break;
 
                 case CMD_NOT_READY:
                     // 对手取消准备
                     playerReadyStates[senderNameWstr] = false;
+
+                    // 【关键修复】P1 收到 P2 取消准备消息时，立即更新状态
+                    if (isHost)
+                    {
+                        receivedLobbyState.hasUpdate = true;
+                        receivedLobbyState.p2Ready = false;
+                    }
                     break;
 
                 case CMD_START_GAME:
-                    // 对手发起游戏开始
+                    // P2 接收到房主发起的游戏开始命令
+                    if (!IsMyMessage(cmd->uid))
+                    {
+                        receivedLobbyState.gameStarted = true;
+                        receivedLobbyState.hasUpdate = true;
+                    }
                     break;
 
                 case CMD_INPUT:
                     // 对手的输入（游戏中）
+                    if (!IsMyMessage(cmd->uid))
+                    {
+                        receivedLobbyState.remoteInput = cmd->data; // 保存对手的方向（0-3）
+                        receivedLobbyState.hasUpdate = true;
+                    }
+                    break;
+
+                case CMD_GAME_OVER:
+                    // 对手发送游戏结束消息
+                    if (!IsMyMessage(cmd->uid))
+                    {
+                        receivedLobbyState.gameOver = true;
+                        receivedLobbyState.opponentWon = (cmd->data == 1); // 对手是否胜利
+                        receivedLobbyState.hasUpdate = true;
+                    }
                     break;
 
                 default:
@@ -628,4 +768,78 @@ void NetworkManager::ProcessRoomMessages()
             }
         }
     }
+}
+
+bool NetworkManager::GetReceivedLobbyState(ReceivedLobbyState &outState)
+{
+    if (receivedLobbyState.hasUpdate)
+    {
+        outState = receivedLobbyState;
+
+        // 标记已读
+        receivedLobbyState.hasUpdate = false;
+
+        // 【核心修复】消费掉"一次性事件"
+        // 这样下一次loop如果没收到新包，或者收到的是无关包，
+        // 就不会再次触发开始游戏或退出了
+        receivedLobbyState.gameStarted = false;
+        receivedLobbyState.exitReceived = false;
+        receivedLobbyState.gameOver = false;
+        receivedLobbyState.receivedLobbySync = false; // LOBBY_SYNC也是一次性的
+
+        // 注意：p1Ready/p2Ready 是持久状态，不要在这里清空，
+        // 它们只能通过 ResetRoomState 或 收到 CMD_NOT_READY 来改变
+
+        return true;
+    }
+    return false;
+}
+
+void NetworkManager::ResetRoomState()
+{
+    // 清空接收状态结构体
+    receivedLobbyState.hasUpdate = false;
+    receivedLobbyState.gameStarted = false; // 核心：清除开始标志
+    receivedLobbyState.gameOver = false;
+    receivedLobbyState.exitReceived = false;
+    receivedLobbyState.opponentWon = false;
+    receivedLobbyState.remoteInput = -1;
+    receivedLobbyState.receivedLobbySync = false;
+
+    // 准备状态也要重置
+    receivedLobbyState.p1Ready = false;
+    receivedLobbyState.p2Ready = false;
+    receivedLobbyState.p1Exist = false;
+    receivedLobbyState.p2Exist = false;
+    receivedLobbyState.p2Connected = false;
+
+    // 清空内部记录的玩家准备表
+    playerReadyStates.clear();
+
+    // 重置本地逻辑状态
+    playerReady = false;
+
+    // 注意：不要清空 myUID 或 opponentUID，也不要断开连接
+}
+
+void NetworkManager::SendStartGameCommand()
+{
+    GameCommand cmd;
+    cmd.cmdType = CMD_START_GAME;
+    cmd.data = 0;
+    cmd.uid = myUID;
+
+    SendBinaryMessage((char *)&cmd, sizeof(GameCommand));
+}
+
+Direction NetworkManager::GetRemoteDirection()
+{
+    // 从 receivedLobbyState 获取远程输入
+    if (receivedLobbyState.remoteInput >= 0 && receivedLobbyState.remoteInput <= 3)
+    {
+        Direction dir = (Direction)receivedLobbyState.remoteInput;
+        receivedLobbyState.remoteInput = -1; // 清除已读取的输入
+        return dir;
+    }
+    return NONE;
 }

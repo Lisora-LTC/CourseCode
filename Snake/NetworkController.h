@@ -17,7 +17,7 @@ private:
 public:
     // ============== 构造与析构 ==============
     NetworkController();
-    NetworkController(NetworkManager *netMgr, int oppId);
+    NetworkController(NetworkManager *netMgr);
     ~NetworkController() override;
 
     // ============== 实现接口方法 ==============

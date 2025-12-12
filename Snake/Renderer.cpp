@@ -159,8 +159,8 @@ void Renderer::DrawFood(const Food &food)
     setlinecolor(color);
     fillellipse(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
 
-    // 为特殊食物添加内部小圆
-    if (food.type != NORMAL_FOOD && food.type != BONUS_FOOD)
+    // 加速食物添加内部小圆作为标记
+    if (food.type == SPEED_UP)
     {
         int innerRadius = radius / 2;
         setfillcolor(RGB(249, 247, 247)); // #F9F7F7
@@ -301,9 +301,9 @@ void Renderer::DrawUI(int score, int highScore, int length, int lives, int time,
     DrawFoodLegendDualColumn();
 
     // =========================
-    // 第四块：退出按钮 (Y: 900) - 360x80大胶囊
+    // 第四块：退出按钮（仅单人模式显示）
     // =========================
-    if (exitButton)
+    if (!isMultiplayerMode && exitButton)
     {
         exitButton->Draw();
     }
@@ -373,7 +373,7 @@ void Renderer::DrawGameOverScreen(int finalScore, bool isHighScore)
     outtextxy(textX, textY, btnText);
 
     // 提示信息（按钮底部+80px）
-    DrawTextCentered(L"点击按钮或按回车/ESC返回", buttonY + buttonHeight + 80, 36, RGB(17, 45, 78));
+    DrawTextCentered(L"点击按钮或按回车返回", buttonY + buttonHeight + 80, 36, RGB(17, 45, 78));
 }
 
 void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2Score, int p1Time, int p2Time)
@@ -390,7 +390,7 @@ void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2
     }
     else
     {
-        DrawTextCentered(L"战败", windowHeight / 2 - 280, 120, RGB(17, 45, 78)); // #112D4E
+        DrawTextCentered(L"✖ 失败 ✖", windowHeight / 2 - 280, 120, RGB(17, 45, 78)); // #112D4E
         DrawTextCentered(L"再接再厉,下次加油！", windowHeight / 2 - 160, 64, RGB(17, 45, 78));
     }
 
@@ -456,7 +456,7 @@ void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2
     settextstyle(&f);
     settextcolor(RGB(249, 247, 247)); // #F9F7F7 白字
     setbkmode(TRANSPARENT);
-    const wchar_t *btnText = L"返回菜单";
+    const wchar_t *btnText = L"返回大厅";
     int textWidth = textwidth(btnText);
     int textHeight = textheight(btnText);
     int textX = buttonX + (buttonWidth - textWidth) / 2;
@@ -464,7 +464,7 @@ void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2
     outtextxy(textX, textY, btnText);
 
     // 提示信息（按钮底部+80px）
-    DrawTextCentered(L"点击按钮或按回车/ESC返回", buttonY + buttonHeight + 80, 36, RGB(17, 45, 78));
+    DrawTextCentered(L"点击按钮或按回车返回大厅", buttonY + buttonHeight + 80, 36, RGB(17, 45, 78));
 }
 
 // ============== 工具方法 ==============
@@ -517,16 +517,8 @@ COLORREF Renderer::GetFoodColor(FoodType type) const
     {
     case NORMAL_FOOD:
         return RGB(247, 197, 72); // #F7C548 金黄色
-    case BONUS_FOOD:
-        return RGB(255, 107, 107); // #FF6B6B 珊瑚粉
-    case MAGIC_FRUIT:
-        return RGB(54, 209, 220); // #36D1DC 青碧色
-    case POISON_FRUIT:
-        return RGB(74, 105, 133); // #4A6985 深灰蓝（石头色）
     case SPEED_UP:
-        return RGB(63, 114, 175); // #3F72AF 保持不变
-    case SPEED_DOWN:
-        return RGB(219, 226, 239); // #DBE2EF 保持不变
+        return RGB(255, 107, 107); // #FF6B6B 红色（加速）
     default:
         return RGB(247, 197, 72);
     }
@@ -781,7 +773,7 @@ void Renderer::DrawFoodLegendDualColumn()
     int legendTitleWidth = textwidth(legendTitle);
     outtextxy(SIDEBAR_CENTER_X - legendTitleWidth / 2, 620, legendTitle);
 
-    // 定义食物项 (5项)
+    // 定义食物项 (只保留2项)
     struct FoodItem
     {
         COLORREF color;
@@ -791,9 +783,6 @@ void Renderer::DrawFoodLegendDualColumn()
     FoodItem foods[] = {
         {RGB(247, 197, 72), L"普通"},  // #F7C548 金黄色
         {RGB(255, 107, 107), L"加速"}, // #FF6B6B 红色
-        {RGB(74, 105, 133), L"恶果"},  // #4A6985 深灰蓝
-        {RGB(219, 226, 239), L"变大"}, // #DBE2EF 灰蓝
-        {RGB(54, 209, 220), L"精灵"},  // #36D1DC 青碧色
     };
 
     // 双列布局基准坐标
@@ -807,23 +796,14 @@ void Renderer::DrawFoodLegendDualColumn()
     settextstyle(22, 0, L"微软雅黑");
     settextcolor(RGB(17, 45, 78)); // #112D4E 深藏青
 
-    // 绘制5个食物项（前4个双列，第5个单独居中）
-    for (int i = 0; i < 5; i++)
+    // 绘制2个食物项（双列排列）
+    for (int i = 0; i < 2; i++)
     {
         int posX, posY;
 
-        if (i < 4)
-        {
-            // 前4个双列排列
-            posX = (i % 2 == 0) ? leftX : rightX; // 左右列交替
-            posY = startY + (i / 2) * rowHeight;  // 每两个换行
-        }
-        else
-        {
-            // 第5个居中 (✨ 精灵)
-            posX = leftX;
-            posY = startY + 2 * rowHeight; // 第三行
-        }
+        // 双列排列
+        posX = (i % 2 == 0) ? leftX : rightX; // 左右列交替
+        posY = startY + (i / 2) * rowHeight;  // 每两个换行
 
         // 绘制圆形图标
         setfillcolor(foods[i].color);

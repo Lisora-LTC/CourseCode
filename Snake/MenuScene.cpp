@@ -5,6 +5,7 @@
 #include "RoomListScene.h"
 #include "LobbyScene.h"
 #include "NetworkManager.h"
+#include "GameManager.h"
 #include "Snake.h"
 #include "AIController.h"
 #include "GameMap.h"
@@ -483,7 +484,7 @@ void MenuScene::DrawInstructions()
     settextcolor(RGB(17, 45, 78)); // #112D4E 深蓝色标题
     setbkmode(TRANSPARENT);
 
-    const wchar_t *instruction = L"使用上下方向键或鼠标选择，回车确认";
+    const wchar_t *instruction = L"使用鼠标选择";
     int textWidth = textwidth(instruction);
     outtextxy((1920 - textWidth) / 2, 980, instruction); // 放在右下角靠上
 }
@@ -865,23 +866,25 @@ bool MenuScene::CreateRoomFlow()
         return false;
     }
 
-    // 进入大厅（房主模式）
-    LobbyScene lobby(networkMgr, roomId, roomName, playerName, true, false);
-    bool shouldStart = lobby.Show();
+    // 进入大厅循环（房主模式）
+    bool isReturningFromGame = false;
+    while (true)
+    {
+        LobbyScene lobby(networkMgr, roomId, roomName, playerName, true, false, isReturningFromGame);
+        bool shouldStart = lobby.Show();
 
-    if (shouldStart)
-    {
-        // 任务 11: 双方准备好，开始游戏
-        // TODO: 启动网络对战游戏
-        // GameManager::StartNetworkGame(networkMgr);
-        MessageBoxW(GetHWnd(), L"游戏即将开始！（网络对战功能待实现）", L"提示", MB_OK | MB_ICONINFORMATION);
-        return true;
-    }
-    else
-    {
-        // 退出房间
-        networkMgr->LeaveRoom();
-        return false;
+        if (!shouldStart)
+        {
+            // 用户退出房间
+            networkMgr->LeaveRoom();
+            return false;
+        }
+
+        // 双方准备好，开始游戏
+        GameManager::StartNetworkGame(networkMgr, true); // 房主模式
+
+        // 游戏结束，返回 LobbyScene 继续循环
+        isReturningFromGame = true; // 标记为从游戏返回
     }
 }
 
@@ -921,22 +924,24 @@ bool MenuScene::JoinRoomFlow()
         }
     }
 
-    // 进入大厅（客人模式）
-    LobbyScene lobby(networkMgr, roomId, roomName, playerName, false, false);
-    bool shouldStart = lobby.Show();
+    // 进入大厅循环（客人模式）
+    bool isReturningFromGame = false;
+    while (true)
+    {
+        LobbyScene lobby(networkMgr, roomId, roomName, playerName, false, false, isReturningFromGame);
+        bool shouldStart = lobby.Show();
 
-    if (shouldStart)
-    {
-        // 任务 11: 双方准备好，开始游戏
-        // TODO: 启动网络对战游戏
-        // GameManager::StartNetworkGame(networkMgr);
-        MessageBoxW(GetHWnd(), L"游戏即将开始！（网络对战功能待实现）", L"提示", MB_OK | MB_ICONINFORMATION);
-        return true;
-    }
-    else
-    {
-        // 退出房间
-        networkMgr->LeaveRoom();
-        return false;
+        if (!shouldStart)
+        {
+            // 用户退出房间
+            networkMgr->LeaveRoom();
+            return false;
+        }
+
+        // 双方准备好，开始游戏
+        GameManager::StartNetworkGame(networkMgr, false); // 客机模式
+
+        // 游戏结束，返回 LobbyScene 继续循环
+        isReturningFromGame = true; // 标记为从游戏返回
     }
 }

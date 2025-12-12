@@ -82,6 +82,61 @@ const int CMD_READY = 0;
 const int CMD_NOT_READY = 1;
 const int CMD_START_GAME = 2;
 const int CMD_INPUT = 3;
+const int CMD_GAME_OVER = 7;    // 游戏结束
+const int CMD_LOBBY_SYNC = 101; // 大厅状态同步（房主心跳广播）
+const int CMD_HELLO = 102;      // P2 入场通知
+const int CMD_EXIT = 104;       // 离开房间/房间解散
+
+// ============== 大厅状态包 ==============
+// 用于房主定期广播房间状态
+struct LobbyStatePacket
+{
+    int packetType;   // CMD_LOBBY_SYNC (101)
+    unsigned int uid; // 发送者 UID
+
+    // 玩家1（房主）信息
+    bool p1_exist;
+    bool p1_ready;
+    char p1_name[40];
+
+    // 玩家2（客机）信息
+    bool p2_exist;
+    bool p2_ready;
+    char p2_name[40];
+
+    LobbyStatePacket()
+        : packetType(CMD_LOBBY_SYNC), uid(0),
+          p1_exist(false), p1_ready(false),
+          p2_exist(false), p2_ready(false)
+    {
+        memset(p1_name, 0, sizeof(p1_name));
+        memset(p2_name, 0, sizeof(p2_name));
+    }
+};
+
+// ============== 入场通知包 ==============
+// P2 连接时发送，告诉 P1 "我来了"
+struct HelloPacket
+{
+    int packetType;   // CMD_HELLO (102)
+    unsigned int uid; // 发送者 UID
+    char name[40];    // 玩家名
+
+    HelloPacket() : packetType(CMD_HELLO), uid(0)
+    {
+        memset(name, 0, sizeof(name));
+    }
+};
+
+// ============== 退出通知包 ==============
+// 玩家离开房间时发送
+struct ExitPacket
+{
+    int packetType;   // CMD_EXIT (104)
+    unsigned int uid; // 发送者 UID
+
+    ExitPacket() : packetType(CMD_EXIT), uid(0) {}
+};
 
 // ============== 网络管理器 ==============
 // 游戏逻辑与底层网络的适配器
@@ -168,6 +223,11 @@ public:
      * @brief 发送文本消息
      */
     void SendTextMessage(const std::string &msg);
+
+    /**
+     * @brief 发送二进制消息（用于发送结构体）
+     */
+    bool SendBinaryMessage(const char *data, int len);
 
     // ============== 数据接收 ==============
     /**
@@ -264,6 +324,64 @@ public:
      */
     bool GetCurrentRoomPlayers(std::vector<LobbyPlayerInfo> &outPlayerList);
 
+    // ============== 大厅状态结构体（公共） ==============
+    // 接收到的大厅状态（用于 LobbyScene 查询）
+    struct ReceivedLobbyState
+    {
+        bool hasUpdate;
+        bool p2Connected;   // P2 是否连接（用于房主）
+        wchar_t p2Name[40]; // P2 名字（用于房主）
+        char p1Name[40];    // P1 名字 UTF-8（用于客机）
+        bool p1Ready;       // P1 准备状态（用于客机）
+        bool p2Ready;       // P2 准备状态（用于客机）
+        bool exitReceived;  // 是否收到退出通知
+        bool gameStarted;   // 游戏开始标志（P2 接收到开始命令）
+        int remoteInput;    // 远程输入方向（0-3 对应 UP/DOWN/LEFT/RIGHT）
+        bool gameOver;      // 游戏结束标志
+        bool opponentWon;   // 对手是否胜利
+
+        // LobbyStatePacket 完整数据
+        bool receivedLobbySync; // 是否收到LOBBY_SYNC包
+        bool p1Exist;           // P1是否存在
+        bool p2Exist;           // P2是否存在
+        char p2NameUtf8[40];    // P2名字UTF-8（用于客机）
+
+        ReceivedLobbyState() : hasUpdate(false), p2Connected(false), p1Ready(false), p2Ready(false), exitReceived(false), gameStarted(false), remoteInput(-1), gameOver(false), opponentWon(false), receivedLobbySync(false), p1Exist(false), p2Exist(false)
+        {
+            wmemset(p2Name, 0, 40);
+            memset(p1Name, 0, 40);
+            memset(p2NameUtf8, 0, 40);
+        }
+    };
+
+public:
+    /**
+     * @brief 处理接收到的房间消息，更新准备状态
+     */
+    void ProcessRoomMessages();
+
+    /**
+     * @brief 获取接收到的大厅状态更新
+     * @param outState 输出状态
+     * @return 是否有新的更新
+     */
+    bool GetReceivedLobbyState(ReceivedLobbyState &outState);
+
+    /**
+     * @brief 发送开始游戏命令（房主调用）
+     */
+    void SendStartGameCommand();
+
+    /**
+     * @brief 获取远程输入方向（NetworkController 调用）
+     */
+    Direction GetRemoteDirection();
+
+    /**
+     * @brief 重置房间状态（用于一局结束后清理残留数据）
+     */
+    void ResetRoomState();
+
 private:
     // 房间相关状态
     uint32_t currentRoomId; // 当前所在房间ID
@@ -274,11 +392,8 @@ private:
     // 玩家准备状态映射（玩家名 -> 准备状态）
     std::map<std::wstring, bool> playerReadyStates;
 
-public:
-    /**
-     * @brief 处理接收到的房间消息，更新准备状态
-     */
-    void ProcessRoomMessages();
+    // 接收到的大厅状态实例
+    ReceivedLobbyState receivedLobbyState;
 
 private:
     /**

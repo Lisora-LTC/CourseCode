@@ -46,6 +46,10 @@ private:
     int gameTime;       // 游戏时间（秒）
     int wallCollisions; // 撞墙次数（高级版用）
 
+    // 网络游戏标志
+    bool isHost;             // 是否为房主（权威服务器）
+    bool ownsNetworkManager; // 是否拥有 networkManager 的所有权（网络对战时不拥有）
+
     // 多人游戏数据
     int player1Score; // P1得分
     int player2Score; // P2得分
@@ -71,6 +75,13 @@ public:
      * @param mode 游戏模式
      */
     void Init(GameMode mode);
+
+    /**
+     * @brief 启动网络对战游戏（静态方法）
+     * @param networkMgr 网络管理器
+     * @param isHost 是否为房主
+     */
+    static void StartNetworkGame(NetworkManager *networkMgr, bool isHost);
 
     /**
      * @brief 清理游戏资源
@@ -196,6 +207,11 @@ private:
      * @brief 处理蛇死亡（进阶版/高级版）
      */
     void HandleSnakeDeath(Snake *snake);
+
+    /**
+     * @brief 发送输入到网络（网络模式）
+     */
+    void SendInputToNetwork(Direction dir);
 
     /**
      * @brief 处理进阶版模式的蛇死亡（蛇尸变边界）
