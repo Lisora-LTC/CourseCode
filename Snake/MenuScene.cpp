@@ -773,43 +773,10 @@ bool MenuScene::HandleNetworkMode()
         }
     }
 
-    // 初始化网络管理器（如果还未初始化）
+    // 初始化网络管理器（如果还未初始化）- 仅创建对象，不连接
     if (!networkMgr)
     {
         networkMgr = new NetworkManager();
-
-        // 显示连接提示
-        cleardevice();
-        settextcolor(RGB(17, 45, 78)); // COLOR_DARK
-        settextstyle(48, 0, L"微软雅黑");
-        setbkmode(TRANSPARENT);
-        const wchar_t *msg = L"正在连接服务器，请稍候...";
-        int msgWidth = textwidth(msg);
-        outtextxy(960 - msgWidth / 2, 500, msg);
-        FlushBatchDraw();
-
-        // 连接到本地服务器（会自动启动 serv.exe）
-        std::string serverIp = "127.0.0.1";
-        int serverPort = 10001;
-
-        // 将 wstring 转换为 UTF-8 编码的 string
-        std::string playerNameStr = WstringToUtf8(playerName);
-
-        if (!networkMgr->Connect(serverIp, serverPort, playerNameStr))
-        {
-            int result = MessageBoxW(GetHWnd(),
-                                     L"连接服务器失败！\n\n可能的原因：\n1. serv.exe 启动失败\n2. 端口 10001 被占用\n3. 防火墙阻止连接\n\n是否要继续（仅测试UI）？",
-                                     L"连接错误",
-                                     MB_YESNO | MB_ICONWARNING);
-
-            if (result != IDYES)
-            {
-                delete networkMgr;
-                networkMgr = nullptr;
-                return false;
-            }
-            // 用户选择继续，保留 networkMgr 但未连接状态
-        }
     }
 
     // 显示联机模式选择场景
@@ -819,11 +786,11 @@ bool MenuScene::HandleNetworkMode()
     switch (action)
     {
     case NM_CREATE_ROOM:
-        // 任务 8: 创建房间流程
+        // 创建房间流程（房主）
         return CreateRoomFlow();
 
     case NM_JOIN_ROOM:
-        // 任务 9: 加入房间流程
+        // 加入房间流程（客机）
         return JoinRoomFlow();
 
     case NM_BACK:
@@ -841,6 +808,29 @@ bool MenuScene::CreateRoomFlow()
     if (!networkMgr)
     {
         MessageBoxW(GetHWnd(), L"网络未初始化！", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // 【房主流程】连接到本地服务器（自动启动serv.exe）
+    cleardevice();
+    settextcolor(RGB(17, 45, 78));
+    settextstyle(48, 0, L"微软雅黑");
+    setbkmode(TRANSPARENT);
+    const wchar_t *msg = L"正在启动本地服务器...";
+    int msgWidth = textwidth(msg);
+    outtextxy(960 - msgWidth / 2, 500, msg);
+    FlushBatchDraw();
+
+    std::string serverIp = "127.0.0.1";
+    int serverPort = 10001;
+    std::string playerNameStr = WstringToUtf8(playerName);
+
+    if (!networkMgr->Connect(serverIp, serverPort, playerNameStr))
+    {
+        MessageBoxW(GetHWnd(),
+                    L"启动本地服务器失败！\n\n可能的原因：\n1. serv.exe 文件不存在\n2. 端口 10001 被占用\n3. 防火墙阻止连接",
+                    L"连接错误",
+                    MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -894,6 +884,53 @@ bool MenuScene::JoinRoomFlow()
     if (!networkMgr)
     {
         MessageBoxW(GetHWnd(), L"网络未初始化！", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // 【客机流程】输入房主IP地址
+    wchar_t ipBuffer[40] = L"192.168.1.100";
+    if (!InputBox(ipBuffer, 40, L"请输入房主的IP地址：\n(例如: 192.168.1.100)", L"加入房间", L"192.168.1.100"))
+    {
+        // 用户取消
+        return false;
+    }
+
+    // 将宽字符IP转换为普通字符串
+    std::wstring ipWstr = ipBuffer;
+    std::string serverIp;
+    for (wchar_t wc : ipWstr)
+    {
+        if (wc < 128) // 只保留ASCII字符
+        {
+            serverIp += (char)wc;
+        }
+    }
+
+    if (serverIp.empty())
+    {
+        MessageBoxW(GetHWnd(), L"IP地址不能为空！", L"错误", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    // 连接到指定的房主IP
+    cleardevice();
+    settextcolor(RGB(17, 45, 78));
+    settextstyle(48, 0, L"微软雅黑");
+    setbkmode(TRANSPARENT);
+    wchar_t connectMsg[100];
+    swprintf_s(connectMsg, L"正在连接 %s ...", ipBuffer);
+    int msgWidth = textwidth(connectMsg);
+    outtextxy(960 - msgWidth / 2, 500, connectMsg);
+    FlushBatchDraw();
+
+    int serverPort = 10001;
+    std::string playerNameStr = WstringToUtf8(playerName);
+
+    if (!networkMgr->Connect(serverIp, serverPort, playerNameStr))
+    {
+        wchar_t errMsg[200];
+        swprintf_s(errMsg, L"连接失败！\n\n目标IP: %s\n端口: %d\n\n可能的原因：\n1. 房主未开启房间\n2. IP地址错误\n3. 网络不通\n4. 防火墙阻止", ipBuffer, serverPort);
+        MessageBoxW(GetHWnd(), errMsg, L"连接错误", MB_OK | MB_ICONERROR);
         return false;
     }
 

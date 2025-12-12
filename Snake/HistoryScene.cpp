@@ -51,36 +51,41 @@ void HistoryScene::Show()
     }
 }
 
+// ============== 辅助函数 ==============
+// 获取exe所在目录的完整路径
+static std::string GetExeDirectory()
+{
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::string exePath(buffer);
+
+    // 找到最后一个反斜杠的位置
+    size_t pos = exePath.find_last_of("\\/");
+    if (pos != std::string::npos)
+    {
+        return exePath.substr(0, pos + 1);
+    }
+    return "";
+}
+
+// 获取exe目录下的文件完整路径
+static std::string GetExeFilePath(const std::string &filename)
+{
+    return GetExeDirectory() + filename;
+}
+
 // ============== 数据加载 ==============
 void HistoryScene::LoadRecords()
 {
     records.clear();
 
-    // 尝试多个可能的路径
-    const char *possiblePaths[] = {
-        "game_records.txt",         // 当前目录（直接运行源码目录下的exe）
-        "..\\..\\game_records.txt", // VS项目：x64\Debug 或 x64\Release 往上两级
-        "..\\game_records.txt"      // 备用：往上一级
-    };
+    // ✅ 直接使用exe目录下的文件
+    std::string recordFilePath = GetExeFilePath("game_records.txt");
 
-    std::ifstream inFile;
-    bool fileFound = false;
-    std::string usedPath;
-
-    for (const char *path : possiblePaths)
+    std::ifstream inFile(recordFilePath);
+    if (!inFile.is_open())
     {
-        inFile.open(path);
-        if (inFile.is_open())
-        {
-            fileFound = true;
-            usedPath = path;
-            break;
-        }
-    }
-
-    if (!fileFound)
-    {
-        // 文件未找到，返回空记录
+        // 文件不存在，返回空记录（文件会在第一次保存时自动创建）
         return;
     }
 
@@ -121,10 +126,40 @@ void HistoryScene::LoadRecords()
                 continue;
             }
         }
-        else
+        else if (line.find("时间:") != std::string::npos)
         {
-            // 旧格式：跳过（编码问题太复杂）
-            continue;
+            // ✅ 旧格式：中文格式
+            // 格式: 时间:2025-12-09 00:06:35 模式:网络对战 得分:0 长度:3
+            try
+            {
+                size_t timePos = line.find("时间:");
+                size_t modePos = line.find("模式:");
+                size_t scorePos = line.find("得分:");
+                size_t lengthPos = line.find("长度:");
+
+                if (timePos != std::string::npos && modePos != std::string::npos &&
+                    scorePos != std::string::npos && lengthPos != std::string::npos)
+                {
+                    // 提取各个字段
+                    std::string timeStr = line.substr(timePos + 6, modePos - timePos - 7); // "时间:" 后的内容
+                    std::string modeStr = line.substr(modePos + 6, scorePos - modePos - 7);
+                    std::string scoreStr = line.substr(scorePos + 6, lengthPos - scorePos - 7);
+                    std::string lengthStr = line.substr(lengthPos + 6);
+
+                    int score = std::stoi(scoreStr);
+                    int length = std::stoi(lengthStr);
+
+                    // 转换为宽字符
+                    std::wstring wTime(timeStr.begin(), timeStr.end());
+                    std::wstring wMode(modeStr.begin(), modeStr.end());
+
+                    records.push_back(HistoryRecord(wTime, wMode, score, length));
+                }
+            }
+            catch (...)
+            {
+                continue;
+            }
         }
     }
 
@@ -149,18 +184,22 @@ std::wstring HistoryScene::ParseModeFromString(const std::string &modeStr)
 std::wstring HistoryScene::ParseModeFromEnglish(const std::string &modeStr)
 {
     // 英文模式映射到中文显示
-    if (modeStr == "SINGLE" || modeStr == "BEGINNER" ||
-        modeStr == "ADVANCED" || modeStr == "EXPERT")
-    {
-        return L"单人";
-    }
-    else if (modeStr == "PVP" || modeStr == "LOCAL_PVP" ||
-             modeStr == "NET_PVP" || modeStr == "PVE")
-    {
-        return L"双人";
-    }
+    if (modeStr == "BEGINNER")
+        return L"入门版";
+    else if (modeStr == "ADVANCED")
+        return L"进阶版";
+    else if (modeStr == "EXPERT")
+        return L"高级版";
+    else if (modeStr == "SINGLE")
+        return L"单人模式";
+    else if (modeStr == "LOCAL_PVP")
+        return L"本地双人";
+    else if (modeStr == "NET_PVP")
+        return L"网络对战";
+    else if (modeStr == "PVE")
+        return L"人机对战";
 
-    // 默认返回
+    // 默认返回（转换为宽字符）
     std::wstring result(modeStr.begin(), modeStr.end());
     return result;
 }

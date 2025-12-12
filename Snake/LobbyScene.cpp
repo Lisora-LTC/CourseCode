@@ -486,6 +486,46 @@ void LobbyScene::DrawRoomInfo()
     swprintf_s(roomNameStr, L"房间名: %s", roomName.c_str());
     int nameWidth = textwidth(roomNameStr);
     outtextxy(960 - nameWidth / 2 + 200, 80, roomNameStr);
+
+    // 【房主专属】显示本机IP地址
+    if (isHost)
+    {
+        // 获取本机IP地址（使用现代API）
+        char hostname[256];
+        if (gethostname(hostname, sizeof(hostname)) == 0)
+        {
+            struct addrinfo hints = {}, *result = nullptr;
+            hints.ai_family = AF_INET; // IPv4
+            hints.ai_socktype = SOCK_STREAM;
+
+            if (getaddrinfo(hostname, nullptr, &hints, &result) == 0 && result != nullptr)
+            {
+                struct sockaddr_in *addr = (struct sockaddr_in *)result->ai_addr;
+                char ipStr[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &(addr->sin_addr), ipStr, INET_ADDRSTRLEN);
+
+                // 转换为宽字符并显示
+                wchar_t ipWstr[50];
+                MultiByteToWideChar(CP_ACP, 0, ipStr, -1, ipWstr, 50);
+
+                settextcolor(RGB(63, 114, 175)); // 亮蓝色
+                settextstyle(32, 0, L"微软雅黑");
+                wchar_t ipMsg[100];
+                swprintf_s(ipMsg, L"本机IP: %s", ipWstr);
+                int ipMsgWidth = textwidth(ipMsg);
+                outtextxy(960 - ipMsgWidth / 2, 140, ipMsg);
+
+                // 提示文字
+                settextcolor(RGB(17, 45, 78));
+                settextstyle(24, 0, L"微软雅黑");
+                const wchar_t *tip = L"(告诉对方此IP以加入房间)";
+                int tipWidth = textwidth(tip);
+                outtextxy(960 - tipWidth / 2, 180, tip);
+
+                freeaddrinfo(result); // 释放资源
+            }
+        }
+    }
 }
 
 void LobbyScene::DrawPlayerCards()

@@ -192,30 +192,8 @@ bool NetworkManager::HasPendingMessages() const
 // ============== 更新 ==============
 void NetworkManager::Update()
 {
-    if (!connected || !client || !inRoom)
-    {
-        return;
-    }
-
-    // 接收消息包
-    NetworkHelper::msg_package_t msgPackage;
-    if (client->recvMsg(msgPackage))
-    {
-        // 遍历所有消息
-        for (uint32_t i = 0; i < msgPackage.msgNum; ++i)
-        {
-            NetworkHelper::msg_t *msg = msgPackage.msgs[i];
-            if (msg && msg->msgContent && msg->msgLen > 0)
-            {
-                // 尝试解码为 GamePacket
-                GamePacket packet;
-                if (DecodePacket(msg->msgContent, msg->msgLen, packet))
-                {
-                    receiveQueue.push(packet);
-                }
-            }
-        }
-    }
+    // ✅ 所有消息处理都在 ProcessRoomMessages() 中进行
+    // 这个方法保留以保持接口兼容性
 }
 
 // ============== 私有方法 ==============
@@ -838,7 +816,9 @@ Direction NetworkManager::GetRemoteDirection()
     if (receivedLobbyState.remoteInput >= 0 && receivedLobbyState.remoteInput <= 3)
     {
         Direction dir = (Direction)receivedLobbyState.remoteInput;
-        receivedLobbyState.remoteInput = -1; // 清除已读取的输入
+        // ✅ 清除已读取的输入，避免重复使用
+        // NetworkController会缓存这个方向，直到收到新的输入
+        receivedLobbyState.remoteInput = -1;
         return dir;
     }
     return NONE;

@@ -38,6 +38,9 @@ Direction KeyboardController::MakeDecision(const Snake &snake, const GameMap &ma
         inputDir = bufferedInput;
         hasBufferedInput = false; // 消费缓冲
         bufferedInput = NONE;
+
+        // ✅ 记录最后的输入方向
+        lastDirection = inputDir;
     }
 
     // 3. 如果没有输入，保持当前方向
@@ -55,7 +58,6 @@ Direction KeyboardController::MakeDecision(const Snake &snake, const GameMap &ma
     }
 
     // 5. 返回有效的新方向
-    lastDirection = inputDir;
     return inputDir;
 }
 

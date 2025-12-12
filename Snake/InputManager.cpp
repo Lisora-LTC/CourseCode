@@ -135,11 +135,25 @@ bool InputManager::IsWindowClosed()
 // ============== 状态更新 ==============
 void InputManager::Update()
 {
-    // 更新所有已追踪按键的状态
+    // 检查窗口是否有焦点（防止本地双开时按键冲突）
+    HWND currentWindow = GetHWnd();
+    HWND foregroundWindow = GetForegroundWindow();
+    bool hasFocus = (currentWindow == foregroundWindow);
+
+    // 更新所有已追踪按键的状态（只在有焦点时）
     for (auto &pair : keyLastState)
     {
         int vkCode = pair.first;
-        pair.second = GetKeyState(vkCode);
+        // 只有当窗口有焦点时才更新按键状态
+        if (hasFocus)
+        {
+            pair.second = GetKeyState(vkCode);
+        }
+        else
+        {
+            // 没有焦点时，清空按键状态
+            pair.second = false;
+        }
     }
 
     // 读取所有鼠标消息到缓冲区（不丢失任何消息）
@@ -178,6 +192,16 @@ void InputManager::Update()
 // ============== 私有方法 ==============
 bool InputManager::GetKeyState(int vkCode)
 {
+    // 检查窗口是否有焦点
+    HWND currentWindow = GetHWnd();
+    HWND foregroundWindow = GetForegroundWindow();
+
+    // 只有当窗口有焦点时才返回按键状态
+    if (currentWindow != foregroundWindow)
+    {
+        return false;
+    }
+
     return (GetAsyncKeyState(vkCode) & 0x8000) != 0;
 }
 

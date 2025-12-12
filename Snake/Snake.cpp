@@ -67,6 +67,9 @@ void Snake::Update(GameMap &map)
     if (!isAlive || !controller)
         return;
 
+    // 先让控制器更新（特别是NetworkController需要从网络获取数据）
+    controller->Update();
+
     // 向控制器询问方向
     Direction newDir = controller->MakeDecision(*this, map);
 
@@ -79,8 +82,11 @@ void Snake::Update(GameMap &map)
     // 应用缓冲的方向
     currentDirection = nextDirection;
 
-    // 移动蛇
-    Move();
+    // 移动蛇（如果还活着）
+    if (isAlive)
+    {
+        Move();
+    }
 }
 
 void Snake::Move()

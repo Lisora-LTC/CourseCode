@@ -23,8 +23,7 @@ NetworkController::~NetworkController()
 // ============== 实现接口方法 ==============
 Direction NetworkController::MakeDecision(const Snake &snake, const GameMap &map)
 {
-    // 返回缓存的方向（这个方向是通过 Update() 从网络获取的）
-
+    // ✅ 使用Update()中已缓存的方向，避免重复获取
     // 如果没有有效方向，保持蛇的当前方向
     if (cachedDirection == NONE)
     {

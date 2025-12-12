@@ -5,6 +5,30 @@
 #include <iostream>
 #include <fstream>
 #include <ctime>
+#include <windows.h>
+
+// ============== 辅助函数 ==============
+// 获取exe所在目录的完整路径
+static std::string GetExeDirectory()
+{
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(NULL, buffer, MAX_PATH);
+    std::string exePath(buffer);
+
+    // 找到最后一个反斜杠的位置
+    size_t pos = exePath.find_last_of("\\/");
+    if (pos != std::string::npos)
+    {
+        return exePath.substr(0, pos + 1);
+    }
+    return "";
+}
+
+// 获取exe目录下的文件完整路径
+static std::string GetExeFilePath(const std::string &filename)
+{
+    return GetExeDirectory() + filename;
+}
 
 // ============== 构造与析构 ==============
 GameManager::GameManager()
@@ -15,7 +39,7 @@ GameManager::GameManager()
       score(0), highScore(0), lives(3), gameTime(0), wallCollisions(0),
       player1Score(0), player2Score(0), player1Time(0), player2Time(0),
       isPaused(false), isRunning(false),
-      recordFileName("game_records.txt")
+      recordFileName(GetExeFilePath("game_records.txt"))
 {
 }
 
@@ -170,7 +194,11 @@ void GameManager::Run()
         {
             if (!isPaused && currentState == PLAYING)
             {
+                // 先检测碰撞，如果死亡就不移动
+                CheckCollisionsBeforeMove();
+                // 只有存活的蛇才移动
                 Update();
+                // 移动后再次检测（处理蛇身碰撞等）
                 CheckCollisions();
                 HandleFood();
 
@@ -200,6 +228,8 @@ void GameManager::Update()
     if (networkManager)
     {
         networkManager->Update();
+        // ✅ 处理房间消息（包括对手输入）
+        networkManager->ProcessRoomMessages();
     }
 
     // 2. 更新所有蛇
@@ -211,7 +241,14 @@ void GameManager::Update()
         }
     }
 
-    // 3. 更新游戏时间
+    // 3. 网络模式：发送本地蛇的状态
+    if (currentMode == NET_PVP && networkManager && playerSnake && playerSnake->IsAlive())
+    {
+        // ✅ 发送本地蛇的方向和位置（每次更新后）
+        SendPlayerState();
+    }
+
+    // 4. 更新游戏时间
     UpdateGameTime();
 }
 
@@ -264,8 +301,9 @@ void GameManager::GameOver()
     if (score > highScore)
     {
         highScore = score;
-        // 写入文件保存最高分
-        std::ofstream outFile("highscore.txt");
+        // 写入文件保存最高分（使用exe目录下的文件）
+        std::string highscoreFile = GetExeFilePath("highscore.txt");
+        std::ofstream outFile(highscoreFile);
         if (outFile.is_open())
         {
             outFile << highScore;
@@ -305,8 +343,29 @@ void GameManager::GameOver()
             {
                 player1Score = snakes[0] ? snakes[0]->GetLength() : 0;
                 player2Score = snakes[1] ? snakes[1]->GetLength() : 0;
-                player1Time = snakes[0] && snakes[0]->IsAlive() ? gameTime : 0;
-                player2Time = snakes[1] && snakes[1]->IsAlive() ? gameTime : 0;
+
+                // 网络模式：根据 isHost 决定显示逻辑
+                if (currentMode == NET_PVP)
+                {
+                    if (isHost)
+                    {
+                        // 房主显示：P1是我，P2是对手
+                        player1Time = gameTime; // 我的时长就是游戏时长
+                        player2Time = gameTime; // 对手的时长（近似）
+                    }
+                    else
+                    {
+                        // 客机显示：P1是对手，P2是我
+                        player1Time = gameTime; // 对手的时长（近似）
+                        player2Time = gameTime; // 我的时长就是游戏时长
+                    }
+                }
+                else
+                {
+                    // 本地模式：根据存活时间
+                    player1Time = snakes[0] && snakes[0]->IsAlive() ? gameTime : 0;
+                    player2Time = snakes[1] && snakes[1]->IsAlive() ? gameTime : 0;
+                }
             }
 
             renderer->DrawMultiplayerGameOverScreen(playerWon, player1Score, player2Score, player1Time, player2Time);
@@ -452,7 +511,26 @@ void GameManager::HandleInput()
 
 void GameManager::CacheGameInput()
 {
-    // 遍历所有蛇，让它们的键盘控制器缓存输入
+    // ✅ 网络模式：只处理本地玩家的蛇
+    if (currentMode == NET_PVP)
+    {
+        if (playerSnake && playerSnake->IsAlive())
+        {
+            IController *controller = playerSnake->GetController();
+            if (controller && std::string(controller->GetTypeName()) == "KeyboardController")
+            {
+                KeyboardController *kbCtrl = dynamic_cast<KeyboardController *>(controller);
+                if (kbCtrl)
+                {
+                    // ✅ 只缓存输入，发送将在蛇实际使用后进行
+                    kbCtrl->CacheInput();
+                }
+            }
+        }
+        return;
+    }
+
+    // ✅ 本地模式：遍历所有蛇
     for (auto snake : snakes)
     {
         if (snake && snake->IsAlive())
@@ -467,13 +545,6 @@ void GameManager::CacheGameInput()
                     if (kbCtrl)
                     {
                         kbCtrl->CacheInput();
-
-                        // 网络模式：发送本地输入到对手
-                        if (networkManager && snake == playerSnake)
-                        {
-                            Direction currentDir = snake->GetDirection();
-                            SendInputToNetwork(currentDir);
-                        }
                     }
                 }
             }
@@ -481,25 +552,77 @@ void GameManager::CacheGameInput()
     }
 }
 
-void GameManager::SendInputToNetwork(Direction dir)
+void GameManager::SendPlayerState()
 {
-    if (!networkManager)
+    if (!networkManager || !playerSnake)
         return;
 
     static Direction lastSentDir = NONE;
+    static Point lastSentPos(-1, -1);
 
-    // 仅在方向改变时发送（避免重复消息）
-    if (dir != lastSentDir && dir != NONE)
+    Direction currentDir = playerSnake->GetDirection();
+    Point currentPos = playerSnake->GetHead();
+
+    // ✅ 仅在方向或位置改变时发送（避免重复消息）
+    if (currentDir != lastSentDir || currentPos != lastSentPos)
     {
         GameCommand cmd;
         cmd.cmdType = CMD_INPUT;
-        cmd.data = (int)dir; // 将方向转为整数（UP=0, DOWN=1, LEFT=2, RIGHT=3）
+        cmd.data = (int)currentDir; // 将方向转为整数（UP=0, DOWN=1, LEFT=2, RIGHT=3）
         cmd.uid = networkManager->GetMyUID();
 
         networkManager->SendBinaryMessage((char *)&cmd, sizeof(GameCommand));
-        lastSentDir = dir;
+
+        lastSentDir = currentDir;
+        lastSentPos = currentPos;
     }
 }
+// 移动前的碰撞检测（预判下一步是否会撞墙）
+void GameManager::CheckCollisionsBeforeMove()
+{
+    for (auto snake : snakes)
+    {
+        if (!snake || !snake->IsAlive())
+            continue;
+
+        // 预判下一个位置
+        Point nextHead = Utils::GetNextPoint(snake->GetHead(), snake->GetDirection());
+        WallType wallType = gameMap->GetWallType(nextHead);
+
+        // 只检测撞墙（硬墙和边界）
+        if (wallType == HARD_WALL || wallType == BOUNDARY)
+        {
+            if (snake == playerSnake)
+            {
+                // 玩家蛇即将撞墙 - 只判定自己的死亡
+                if (currentMode == BEGINNER)
+                {
+                    snake->SetAlive(false);
+                    lives = 0;
+                }
+                else if (currentMode == ADVANCED)
+                {
+                    HandleAdvancedModeDeath();
+                }
+                else if (currentMode == EXPERT)
+                {
+                    wallCollisions++;
+                    HandleExpertModeDeath();
+                }
+                else
+                {
+                    snake->SetAlive(false);
+                    lives = 0;
+                }
+            }
+            else
+            {
+                HandleSnakeDeath(snake);
+            }
+        }
+    }
+}
+
 void GameManager::CheckCollisions()
 {
     // 遍历所有蛇，检查每条蛇的碰撞
@@ -510,50 +633,12 @@ void GameManager::CheckCollisions()
 
         Point head = snake->GetHead();
 
-        // 1. 检测撞墙
+        // 1. 检测撞墙（只处理软墙，硬墙已在CheckCollisionsBeforeMove中处理）
         WallType wallType = gameMap->GetWallType(head);
-        if (wallType != NO_WALL)
+        if (wallType == SOFT_WALL)
         {
-            if (wallType == HARD_WALL || wallType == BOUNDARY)
-            {
-                if (snake == playerSnake)
-                {
-                    // 玩家蛇撞墙，根据模式处理
-                    if (currentMode == BEGINNER)
-                    {
-                        // 入门版：撞墙直接死亡，游戏结束
-                        snake->SetAlive(false);
-                        lives = 0;
-                    }
-                    else if (currentMode == ADVANCED)
-                    {
-                        // 进阶版：蛇挂掉后蛇尸变边界，再生成新蛇
-                        HandleAdvancedModeDeath();
-                    }
-                    else if (currentMode == EXPERT)
-                    {
-                        // 高级版：蛇尸变食物，撞墙次数+1
-                        wallCollisions++;
-                        HandleExpertModeDeath();
-                    }
-                    else
-                    {
-                        // 其他模式：原有逻辑
-                        snake->SetAlive(false);
-                        lives = 0;
-                    }
-                }
-                else
-                {
-                    // AI蛇或其他蛇撞墙，直接死亡
-                    HandleSnakeDeath(snake);
-                }
-            }
-            else if (wallType == SOFT_WALL)
-            {
-                // 软墙：移除墙壁
-                gameMap->RemoveWall(head);
-            }
+            // 软墙：移除墙壁
+            gameMap->RemoveWall(head);
         }
 
         // 2. 检测撞自己
@@ -561,7 +646,7 @@ void GameManager::CheckCollisions()
         {
             if (snake == playerSnake)
             {
-                // 玩家蛇撞自己，根据模式处理
+                // 玩家蛇撞自己，根据模式处理 - 只判定自己的死亡
                 if (currentMode == BEGINNER)
                 {
                     // 入门版：撞自己直接结束
@@ -683,6 +768,7 @@ void GameManager::HandleFood()
 // ============== 记录管理 ==============
 void GameManager::SaveGameRecord()
 {
+    // 使用追加模式打开文件，如果文件不存在会自动创建
     std::ofstream file(recordFileName, std::ios::app);
     if (file.is_open())
     {
@@ -693,11 +779,13 @@ void GameManager::SaveGameRecord()
         localtime_s(&timeinfo, &now);
         strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
 
-        // 保存记录
-        file << "时间:" << timeStr
-             << " 模式:" << GetModeString(currentMode)
-             << " 得分:" << score
-             << " 长度:" << (playerSnake ? playerSnake->GetLength() : 0)
+        // ✅ 使用CSV格式保存（逗号分隔，使用英文模式名）
+        // 格式: 时间,模式,得分,长度
+        std::string modeEnglish = GetModeEnglish(currentMode);
+        file << timeStr << ","
+             << modeEnglish << ","
+             << score << ","
+             << (playerSnake ? playerSnake->GetLength() : 0)
              << std::endl;
 
         file.close();
@@ -828,10 +916,10 @@ void GameManager::InitPVEMode()
 
 void GameManager::InitNetworkPVPMode()
 {
-    // 创建渲染器（不创建窗口，由main管理）
+    // 创建渲染器
     renderer = new Renderer();
-    int totalWidth = 1920;  // 使用1920全屏宽度
-    int totalHeight = 1080; // 使用1080全屏高度
+    int totalWidth = 1920;
+    int totalHeight = 1080;
     renderer->Init(totalWidth, totalHeight, L"贪吃蛇 - 网络对战", false);
 
     // 创建地图
@@ -840,18 +928,38 @@ void GameManager::InitNetworkPVPMode()
     // 创建食物管理器
     foodManager = new FoodManager();
 
-    // 创建本地玩家蛇（键盘控制）
-    Point localStartPos(MAP_WIDTH / 3, MAP_HEIGHT / 2);
-    Snake *localSnake = new Snake(0, localStartPos, LEFT, RGB(0, 255, 0));
-    localSnake->SetController(new KeyboardController(0)); // WASD 控制
-    snakes.push_back(localSnake);
-    playerSnake = localSnake;
+    // 定义两条蛇的初始位置和颜色
+    Point p1Pos(MAP_WIDTH / 3, MAP_HEIGHT / 2);     // P1 位置 (左)
+    Point p2Pos(MAP_WIDTH * 2 / 3, MAP_HEIGHT / 2); // P2 位置 (右)
 
-    // 创建远程玩家蛇（网络控制）
-    Point remoteStartPos(MAP_WIDTH * 2 / 3, MAP_HEIGHT / 2);
-    Snake *remoteSnake = new Snake(1, remoteStartPos, RIGHT, RGB(255, 255, 0));
-    remoteSnake->SetController(new NetworkController(networkManager)); // 网络控制
-    snakes.push_back(remoteSnake);
+    // 创建两个蛇对象
+    Snake *snake1 = new Snake(0, p1Pos, LEFT, RGB(0, 255, 0));    // P1 绿色
+    Snake *snake2 = new Snake(1, p2Pos, RIGHT, RGB(255, 255, 0)); // P2 黄色
+
+    snakes.push_back(snake1);
+    snakes.push_back(snake2);
+
+    // 根据身份分配控制器
+    if (isHost)
+    {
+        // === 我是房主 (P1) ===
+        // 我控制绿色蛇 (snake1)
+        snake1->SetController(new KeyboardController(0));
+        playerSnake = snake1; // 标记我的蛇
+
+        // 对手控制黄色蛇 (snake2)
+        snake2->SetController(new NetworkController(networkManager));
+    }
+    else
+    {
+        // === 我是客机 (P2) ===
+        // 对手控制绿色蛇 (snake1)
+        snake1->SetController(new NetworkController(networkManager));
+
+        // 我控制黄色蛇 (snake2)
+        snake2->SetController(new KeyboardController(0));
+        playerSnake = snake2; // 标记我的蛇
+    }
 
     // 生成初始食物（仅房主生成，后续同步）
     if (isHost)
@@ -896,7 +1004,9 @@ void GameManager::InitByGameMode(GameMode mode)
 
 void GameManager::LoadHighScore()
 {
-    std::ifstream file("highscore.txt");
+    std::string highscoreFile = GetExeFilePath("highscore.txt");
+
+    std::ifstream file(highscoreFile);
     if (file.is_open())
     {
         file >> highScore;
@@ -904,13 +1014,14 @@ void GameManager::LoadHighScore()
     }
     else
     {
+        // 文件不存在，初始化为0
         highScore = 0;
     }
 
-    // 保存最高分
+    // 保存最高分（如果当前分数更高）
     if (score > highScore)
     {
-        std::ofstream outFile("highscore.txt");
+        std::ofstream outFile(highscoreFile);
         if (outFile.is_open())
         {
             outFile << highScore;
@@ -1203,6 +1314,29 @@ std::string GameManager::GetModeString(GameMode mode)
         return "人机对战";
     default:
         return "未知模式";
+    }
+}
+
+std::string GameManager::GetModeEnglish(GameMode mode)
+{
+    switch (mode)
+    {
+    case BEGINNER:
+        return "BEGINNER";
+    case ADVANCED:
+        return "ADVANCED";
+    case EXPERT:
+        return "EXPERT";
+    case SINGLE:
+        return "SINGLE";
+    case LOCAL_PVP:
+        return "LOCAL_PVP";
+    case NET_PVP:
+        return "NET_PVP";
+    case PVE:
+        return "PVE";
+    default:
+        return "UNKNOWN";
     }
 }
 std::vector<GameRecord> GameManager::QueryRecordsByUser(const std::string &username)

@@ -116,6 +116,11 @@ public:
     void CacheGameInput();
 
     /**
+     * @brief 移动前检测碰撞（预判下一步是否会撞墙）
+     */
+    void CheckCollisionsBeforeMove();
+
+    /**
      * @brief 检测碰撞
      */
     void CheckCollisions();
@@ -209,9 +214,9 @@ private:
     void HandleSnakeDeath(Snake *snake);
 
     /**
-     * @brief 发送输入到网络（网络模式）
+     * @brief 网络对战：发送本地玩家状态到对手
      */
-    void SendInputToNetwork(Direction dir);
+    void SendPlayerState();
 
     /**
      * @brief 处理进阶版模式的蛇死亡（蛇尸变边界）
@@ -234,7 +239,12 @@ private:
     Point FindEmptyPosition();
 
     /**
-     * @brief 获取模式字符串
+     * @brief 获取模式字符串（中文）
      */
     std::string GetModeString(GameMode mode);
+
+    /**
+     * @brief 获取模式字符串（英文）
+     */
+    std::string GetModeEnglish(GameMode mode);
 };

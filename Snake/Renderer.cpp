@@ -382,17 +382,9 @@ void Renderer::DrawMultiplayerGameOverScreen(bool playerWon, int p1Score, int p2
     setfillcolor(RGB(219, 226, 239)); // #DBE2EF
     solidrectangle(0, 0, windowWidth, windowHeight);
 
-    // 游戏结束标题
-    if (playerWon)
-    {
-        DrawTextCentered(L"★ 胜利！★", windowHeight / 2 - 280, 120, RGB(17, 45, 78)); // #112D4E
-        DrawTextCentered(L"恭喜你赢得了对战！", windowHeight / 2 - 160, 64, RGB(17, 45, 78));
-    }
-    else
-    {
-        DrawTextCentered(L"✖ 失败 ✖", windowHeight / 2 - 280, 120, RGB(17, 45, 78)); // #112D4E
-        DrawTextCentered(L"再接再厉,下次加油！", windowHeight / 2 - 160, 64, RGB(17, 45, 78));
-    }
+    // 游戏结束标题（不判定胜负）
+    DrawTextCentered(L"游戏结束", windowHeight / 2 - 280, 120, RGB(17, 45, 78)); // #112D4E
+    DrawTextCentered(L"感谢游玩！", windowHeight / 2 - 160, 64, RGB(17, 45, 78));
 
     // 双人得分和时长显示
     wchar_t scoreText[200];

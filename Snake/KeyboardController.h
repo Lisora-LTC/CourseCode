@@ -39,6 +39,16 @@ public:
      */
     void CacheInput();
 
+    /**
+     * @brief 检查是否有缓冲的输入
+     */
+    bool HasBufferedInput() const { return hasBufferedInput; }
+
+    /**
+     * @brief 获取缓冲的输入（不清除缓冲）
+     */
+    Direction GetBufferedInput() const { return bufferedInput; }
+
 private:
     /**
      * @brief 检测键盘输入

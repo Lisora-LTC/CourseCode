@@ -70,22 +70,26 @@ struct GamePacket
 // 用于房间内的指令通信（准备、开始等）
 struct GameCommand
 {
-    int cmdType;      // 指令类型（0=READY, 1=NOT_READY, 2=START, 3=INPUT）
-    int data;         // 附加数据
+    int cmdType;      // 指令类型（见下方常量定义）
+    int data;         // 附加数据（用途取决于cmdType）
     unsigned int uid; // 发送者的唯一标识符
 
     GameCommand() : cmdType(0), data(0), uid(0) {}
 };
 
 // 指令类型常量
-const int CMD_READY = 0;
-const int CMD_NOT_READY = 1;
-const int CMD_START_GAME = 2;
-const int CMD_INPUT = 3;
+const int CMD_READY = 0;        // 准备
+const int CMD_NOT_READY = 1;    // 取消准备
+const int CMD_START_GAME = 2;   // 开始游戏
+const int CMD_INPUT = 3;        // 输入方向（data = Direction枚举值）
 const int CMD_GAME_OVER = 7;    // 游戏结束
 const int CMD_LOBBY_SYNC = 101; // 大厅状态同步（房主心跳广播）
 const int CMD_HELLO = 102;      // P2 入场通知
 const int CMD_EXIT = 104;       // 离开房间/房间解散
+
+// ✅ 说明：目前使用 GameCommand 统一处理所有游戏消息
+// - 输入同步：通过 CMD_INPUT 发送方向（每次方向改变时）
+// - data 字段存储 Direction 枚举值（UP=0, DOWN=1, LEFT=2, RIGHT=3）
 
 // ============== 大厅状态包 ==============
 // 用于房主定期广播房间状态
