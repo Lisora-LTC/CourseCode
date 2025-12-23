@@ -1102,6 +1102,16 @@ void GameManager::HandleAdvancedModeDeath()
     if (!playerSnake || !gameMap || !foodManager)
         return;
 
+    wallCollisions++;
+    // 3. 检查撞墙次数是否超过5次
+    if (wallCollisions > 5)
+    {
+        playerSnake->SetAlive(false);
+        lives = 0;
+        GameOver();
+        return;
+    }
+
     // 1. 将蛇身变为边界
     const auto &body = playerSnake->GetBody();
     for (const auto &segment : body)
@@ -1153,6 +1163,7 @@ void GameManager::HandleExpertModeDeath()
         }
     }
 
+    wallCollisions++;
     // 2. 检查是否有足够空间生成新蛇（高级版需要更多空间）
     if (!HasEnoughSpace())
     {
@@ -1166,6 +1177,7 @@ void GameManager::HandleExpertModeDeath()
     {
         playerSnake->SetAlive(false);
         lives = 0;
+        GameOver();
         return;
     }
 

@@ -119,30 +119,42 @@ void Renderer::DrawSnakes(const std::vector<Snake *> &snakes)
 
 void Renderer::DrawMap(const GameMap &map)
 {
-    // 一体化边框：绘制4个长条矩形（上、下、左、右）
-    COLORREF wallColor = RGB(219, 226, 239); // #DBE2EF 灰蓝色，不抢风头
-    setfillcolor(wallColor);
-    setlinecolor(wallColor);
+    // 1. 先绘制一体化边框（4个长条矩形）
+    COLORREF borderColor = RGB(219, 226, 239); // #DBE2EF 灰蓝色
+    setfillcolor(borderColor);
+    setlinecolor(borderColor);
 
-    int borderThickness = BLOCK_SIZE;        // 边框厚度 36px
-    int mapWidth = MAP_WIDTH * BLOCK_SIZE;   // 1368px
-    int mapHeight = MAP_HEIGHT * BLOCK_SIZE; // 1008px
+    int borderThickness = BLOCK_SIZE;
+    int mapWidth = MAP_WIDTH * BLOCK_SIZE;
+    int mapHeight = MAP_HEIGHT * BLOCK_SIZE;
 
-    // 上边框 (加上GAME_AREA_X/Y偏移)
+    // 上边框
     solidrectangle(GAME_AREA_X, GAME_AREA_Y,
                    GAME_AREA_X + mapWidth, GAME_AREA_Y + borderThickness);
-
     // 下边框
     solidrectangle(GAME_AREA_X, GAME_AREA_Y + mapHeight - borderThickness,
                    GAME_AREA_X + mapWidth, GAME_AREA_Y + mapHeight);
-
     // 左边框
     solidrectangle(GAME_AREA_X, GAME_AREA_Y,
                    GAME_AREA_X + borderThickness, GAME_AREA_Y + mapHeight);
-
     // 右边框
     solidrectangle(GAME_AREA_X + mapWidth - borderThickness, GAME_AREA_Y,
                    GAME_AREA_X + mapWidth, GAME_AREA_Y + mapHeight);
+
+    // 2. 遍历地图内部，绘制所有墙体（包括蛇尸变墙）
+    const auto &walls = map.GetWalls();
+    for (int y = 0; y < map.GetHeight(); ++y)
+    {
+        for (int x = 0; x < map.GetWidth(); ++x)
+        {
+            WallType type = walls[y][x];
+            if (type != NO_WALL)
+            {
+                COLORREF color = GetWallColor(type);
+                DrawBlock(x, y, color, true);
+            }
+        }
+    }
 }
 
 void Renderer::DrawFood(const Food &food)

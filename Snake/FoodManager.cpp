@@ -161,12 +161,15 @@ void FoodManager::Update()
 // ============== 私有辅助方法 ==============
 Point FoodManager::FindEmptyPosition(const Snake &snake, const GameMap &map) const
 {
-    // 找到一个可用的空位置
+    // 找到一个可用的空位置（避免在最靠近墙边的一圈生成）
     int maxAttempts = 100; // 最多尝试100次
 
     for (int i = 0; i < maxAttempts; i++)
     {
-        Point pos = Utils::RandomPoint();
+        // ✅ 在距离墙边至少2格的区域随机生成
+        int x = Utils::RandomInt(2, MAP_WIDTH - 3);
+        int y = Utils::RandomInt(2, MAP_HEIGHT - 3);
+        Point pos(x, y);
 
         if (!IsPositionOccupied(pos, snake, map))
         {
@@ -174,10 +177,10 @@ Point FoodManager::FindEmptyPosition(const Snake &snake, const GameMap &map) con
         }
     }
 
-    // 如果随机失败，遍历所有位置
-    for (int y = 1; y < MAP_HEIGHT - 1; y++)
+    // 如果随机失败，遍历所有位置（排除最靠近墙边的一圈）
+    for (int y = 2; y < MAP_HEIGHT - 2; y++)
     {
-        for (int x = 1; x < MAP_WIDTH - 1; x++)
+        for (int x = 2; x < MAP_WIDTH - 2; x++)
         {
             Point pos(x, y);
             if (!IsPositionOccupied(pos, snake, map))
