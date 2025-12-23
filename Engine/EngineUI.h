@@ -198,6 +198,22 @@ public:
      */
     void drawCASMessages(const std::vector<std::string> &messages, Point pos);
 
+    // ==================== 告警级别计算函数 ====================
+
+    /**
+     * @brief 计算N1转速的告警级别
+     * @param engine 发动机数据
+     * @return 告警级别
+     */
+    AlertLevel calculateN1AlertLevel(const EngineData &engine) const;
+
+    /**
+     * @brief 计算EGT温度的告警级别
+     * @param engine 发动机数据
+     * @return 告警级别
+     */
+    AlertLevel calculateEGTAlertLevel(const EngineData &engine) const;
+
     // ==================== 按钮绘制与交互 ====================
 
     /**

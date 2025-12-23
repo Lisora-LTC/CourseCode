@@ -151,106 +151,155 @@ int main()
 
 bool initializeSystem()
 {
-    // TODO: 实现系统初始化
     // 1. 创建EngineSimulator实例
-    // 2. 创建AlertManager实例
-    // 3. 创建Logger实例并初始化文件
-    // 4. 创建EngineUI实例并初始化图形界面
-    // 5. 设置UI的按钮回调函数
-    // 6. 检查所有模块是否初始化成功
+    g_simulator = new EngineSimulator();
+    if (!g_simulator)
+    {
+        std::cerr << "Failed to create EngineSimulator!" << std::endl;
+        return false;
+    }
 
-    return false; // 占位返回
+    // 2. 创建AlertManager实例
+    g_alertManager = new AlertManager();
+    if (!g_alertManager)
+    {
+        std::cerr << "Failed to create AlertManager!" << std::endl;
+        return false;
+    }
+
+    // 3. 创建Logger实例并初始化文件
+    g_logger = new Logger(".");
+    if (!g_logger || !g_logger->initFiles())
+    {
+        std::cerr << "Failed to initialize Logger!" << std::endl;
+        return false;
+    }
+
+    // 4. 创建EngineUI实例并初始化图形界面
+    g_ui = new EngineUI(1280, 720);
+    if (!g_ui || !g_ui->initialize())
+    {
+        std::cerr << "Failed to initialize EngineUI!" << std::endl;
+        return false;
+    }
+
+    // 5. 设置UI的按钮回调函数
+    g_ui->setButtonCallback(onButtonClicked);
+
+    return true;
 }
 
 void shutdownSystem()
 {
-    // TODO: 实现系统清理
-    // 1. 关闭Logger文件
-    // 2. 关闭UI
-    // 3. 删除所有动态分配的对象
-    // 4. 设置指针为nullptr
+    // 关闭Logger文件
+    if (g_logger)
+    {
+        g_logger->closeFiles();
+        delete g_logger;
+        g_logger = nullptr;
+    }
+
+    // 关闭UI
+    if (g_ui)
+    {
+        g_ui->shutdown();
+        delete g_ui;
+        g_ui = nullptr;
+    }
+
+    // 删除AlertManager
+    if (g_alertManager)
+    {
+        delete g_alertManager;
+        g_alertManager = nullptr;
+    }
+
+    // 删除Simulator
+    if (g_simulator)
+    {
+        delete g_simulator;
+        g_simulator = nullptr;
+    }
 }
 
 void onButtonClicked(ButtonID buttonID)
 {
-    // TODO: 实现按钮点击处理
-    // 根据buttonID执行相应操作：
-    // - START: 调用simulator->startEngine()
-    // - STOP: 调用simulator->stopEngine()（最高优先级）
-    // - INCREASE_THRUST: 调用simulator->adjustThrust(+1)
-    // - DECREASE_THRUST: 调用simulator->adjustThrust(-1)
-
     switch (buttonID)
     {
     case ButtonID::START:
         std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: START" << std::endl;
-        // g_simulator->startEngine();
+        g_simulator->startEngine();
         break;
 
     case ButtonID::STOP:
         std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: STOP (Priority)" << std::endl;
-        // g_simulator->stopEngine();
+        g_simulator->stopEngine();
         break;
 
     case ButtonID::INCREASE_THRUST:
         std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: INCREASE THRUST" << std::endl;
-        // g_simulator->adjustThrust(+1);
+        g_simulator->adjustThrust(+1);
         break;
 
     case ButtonID::DECREASE_THRUST:
         std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: DECREASE THRUST" << std::endl;
-        // g_simulator->adjustThrust(-1);
+        g_simulator->adjustThrust(-1);
         break;
     }
 }
 
 void update(double deltaTime)
 {
-    // TODO: 实现主更新逻辑
     // 1. 更新仿真引擎（物理计算）
-    //    g_simulator->update(deltaTime);
+    g_simulator->update(deltaTime);
 
-    // 2. 获取最新系统数据
-    //    SystemData data = g_simulator->getLatestData();
+    // 2. 获取当前系统数据
+    SystemData data = g_simulator->getLatestData();
 
     // 3. 检测告警条件
-    //    g_alertManager->checkCondition(data);
-    //    g_alertManager->updateTimers(deltaTime);
+    AlertLevel highestLevel = g_alertManager->checkCondition(data);
 
-    // 4. 记录数据到CSV
-    //    g_logger->recordData(data.elapsedTime, data);
+    // 4. 更新告警计时器
+    g_alertManager->updateTimers(deltaTime);
 
-    // 5. 检查是否有新告警需要记录
-    //    std::vector<AlertInfo> newAlerts = g_alertManager->getNewAlerts();
-    //    for (const auto& alert : newAlerts) {
-    //        g_logger->recordAlert(data.elapsedTime, alert);
-    //    }
+    // 5. 获取新触发的告警（用于日志记录）
+    std::vector<AlertInfo> newAlerts = g_alertManager->getNewAlerts();
+    for (const auto &alert : newAlerts)
+    {
+        g_logger->recordEvent(alert.timestamp, alert.faultType, alert.message);
+    }
 
-    // 6. 定期刷新文件缓冲区（每秒一次）
-    //    static int flushCounter = 0;
-    //    if (++flushCounter >= 200) { // 200 * 5ms = 1s
-    //        g_logger->flush();
-    //        flushCounter = 0;
-    //    }
+    // 6. 记录数据到CSV（每1秒记录一次）
+    static double dataLogTimer = 0.0;
+    dataLogTimer += deltaTime;
+    if (dataLogTimer >= 1.0)
+    {
+        g_logger->recordData(data.timestamp, data.leftEngine, data.rightEngine,
+                             data.fuelData, highestLevel);
+        dataLogTimer = 0.0;
+    }
 
-    // 7. 检查是否需要更新UI
-    //    if (data.elapsedTime - g_lastUIUpdateTime >= UI_UPDATE_INTERVAL) {
-    //        updateUI();
-    //        g_lastUIUpdateTime = data.elapsedTime;
-    //    }
+    // 7. 检查是否需要更新UI（降低频率到30Hz）
+    static double uiUpdateTimer = 0.0;
+    uiUpdateTimer += deltaTime;
+
+    if (uiUpdateTimer >= UI_UPDATE_INTERVAL)
+    {
+        updateUI();
+        uiUpdateTimer = 0.0;
+    }
 }
 
 void updateUI()
 {
-    // TODO: 实现UI更新
-    // 1. 获取系统数据
-    //    SystemData data = g_simulator->getLatestData();
+    // 获取系统数据
+    SystemData data = g_simulator->getLatestData();
 
-    // 2. 获取活跃告警消息
-    //    std::vector<std::string> alerts = g_alertManager->getActiveMessages();
+    // 获取活跃告警消息
+    std::vector<std::string> alerts = g_alertManager->getActiveMessages();
 
-    // 3. 更新界面
-    //    g_ui->update(data, alerts);
+    // 更新界面
+    g_ui->update(data, alerts);
 }
 
 void preciseSleep(double milliseconds)
