@@ -17,6 +17,7 @@ struct AlertInfo
     std::string message; // 告警消息（英文）
     double timestamp;    // 告警触发时间
     bool isActive;       // 是否活跃
+    bool updated;        // 本帧是否更新
     double displayTimer; // 显示计时器（5秒）
 
     AlertInfo() : faultType(FaultType::NONE),
@@ -24,6 +25,7 @@ struct AlertInfo
                   message(""),
                   timestamp(0.0),
                   isActive(false),
+                  updated(false),
                   displayTimer(0.0) {}
 };
 
@@ -105,6 +107,14 @@ public:
      * @brief 清除所有告警
      */
     void clearAllAlerts();
+
+    /**
+     * @brief 检查指定类型的告警是否处于活跃状态
+     * @param faultType 故障类型
+     * @param message 告警消息（可选，用于区分同类型的不同告警）
+     * @return 如果告警活跃返回true
+     */
+    bool isAlertActive(FaultType faultType, const std::string &message = "") const;
 
 private:
     // ==================== 私有成员变量 ====================

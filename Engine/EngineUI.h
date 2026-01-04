@@ -265,6 +265,21 @@ public:
      */
     void onButtonClicked(ButtonID id);
 
+    /**
+     * @brief 设置当前故障状态文本
+     * @param faultText 故障描述文本
+     *
+     * 用于在界面上显示当前注入的故障
+     */
+    void setCurrentFaultStatus(const std::string &faultText);
+
+    /**
+     * @brief 绘制当前故障状态显示区域
+     *
+     * 在按钮上方显示当前注入的故障信息
+     */
+    void drawFaultStatusDisplay();
+
     // ==================== 事件处理 ====================
 
     /**
@@ -294,6 +309,9 @@ private:
     // 状态指示器状态
     bool startLightOn_; // START灯是否亮起
     bool runLightOn_;   // RUN灯是否亮起
+
+    // 当前故障状态
+    std::string currentFaultStatus_; // 当前注入的故障描述文本
 
     // 按钮位置信息（用于点击检测）
     struct ButtonInfo

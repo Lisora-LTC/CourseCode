@@ -21,13 +21,19 @@ AlertLevel AlertManager::checkCondition(const SystemData &data)
     // 1. 清空newAlerts_列表
     newAlerts_.clear();
 
-    // 2. 调用各个子检测函数
+    // 2. 标记所有活跃告警为未更新
+    for (auto &alert : activeAlerts_)
+    {
+        alert.updated = false;
+    }
+
+    // 3. 调用各个子检测函数
     checkSensorFaults(data);
     checkFuelAbnormal(data);
     checkThrustAbnormal(data);
     checkTempAbnormal(data);
 
-    // 3. 检查双发失效（最危险的情况）
+    // 4. 检查双发失效（最危险的情况）
     bool leftEngineDead = data.leftEngine.state == SystemState::OFF &&
                           data.systemState != SystemState::OFF;
     bool rightEngineDead = data.rightEngine.state == SystemState::OFF &&
@@ -39,10 +45,17 @@ AlertLevel AlertManager::checkCondition(const SystemData &data)
                  "DUAL ENGINE FAILURE", data.timestamp);
     }
 
-    // 4. 更新最高告警级别
+    // 5. 移除未更新的告警（即条件不再满足的告警）
+    activeAlerts_.erase(
+        std::remove_if(activeAlerts_.begin(), activeAlerts_.end(),
+                       [](const AlertInfo &a)
+                       { return !a.updated; }),
+        activeAlerts_.end());
+
+    // 6. 更新最高告警级别
     updateHighestLevel();
 
-    // 5. 返回最高级别
+    // 7. 返回最高级别
     return highestLevel_;
 }
 
@@ -173,6 +186,11 @@ void AlertManager::checkSensorFaults(const SystemData &data)
 
 void AlertManager::checkFuelAbnormal(const SystemData &data)
 {
+    // 迟滞阈值定义
+    const double FUEL_QTY_HYSTERESIS = 50.0;  // 50kg
+    const double FUEL_FLOW_HYSTERESIS = 2.0;  // 2kg/min
+    const double IMBALANCE_HYSTERESIS = 0.02; // 2%
+
     // 1. 燃油传感器故障
     if (!data.fuelData.fuelSensorValid)
     {
@@ -181,29 +199,47 @@ void AlertManager::checkFuelAbnormal(const SystemData &data)
     }
 
     // 2. 燃油余量低（< 1000kg）
-    if (data.fuelData.fuelSensorValid && data.fuelData.fuelQuantity < 1000.0)
+    // 注意：使用capacity而不是fuelQuantity，因为EngineSimulator主要更新capacity
+    if (data.fuelData.fuelSensorValid)
     {
-        if (data.fuelData.fuelQuantity < 500.0)
+        // < 500 (WARNING)
+        bool isCritical = isAlertActive(FaultType::FUEL_FLOW_LOW, "FUEL QUANTITY CRITICAL");
+        double thresholdCritical = isCritical ? (500.0 + FUEL_QTY_HYSTERESIS) : 500.0;
+
+        if (data.fuelData.capacity < thresholdCritical)
         {
             addAlert(FaultType::FUEL_FLOW_LOW, AlertLevel::WARNING,
                      "FUEL QUANTITY CRITICAL", data.timestamp);
         }
         else
         {
-            addAlert(FaultType::FUEL_FLOW_LOW, AlertLevel::CAUTION,
-                     "FUEL QUANTITY LOW", data.timestamp);
+            // < 1000 (CAUTION)
+            bool isLow = isAlertActive(FaultType::FUEL_FLOW_LOW, "FUEL QUANTITY LOW");
+            double thresholdLow = isLow ? (1000.0 + FUEL_QTY_HYSTERESIS) : 1000.0;
+
+            if (data.fuelData.capacity < thresholdLow)
+            {
+                addAlert(FaultType::FUEL_FLOW_LOW, AlertLevel::CAUTION,
+                         "FUEL QUANTITY LOW", data.timestamp);
+            }
         }
     }
 
     // 3. 左发燃油流量超限（> 50 kg/min）
-    if (data.leftEngine.fuelFlow > 50.0)
+    bool isLeftHigh = isAlertActive(FaultType::FUEL_FLOW_HIGH, "FUEL FLOW HIGH - LEFT");
+    double thresholdLeft = isLeftHigh ? (50.0 - FUEL_FLOW_HYSTERESIS) : 50.0;
+
+    if (data.leftEngine.fuelFlow > thresholdLeft)
     {
         addAlert(FaultType::FUEL_FLOW_HIGH, AlertLevel::WARNING,
                  "FUEL FLOW HIGH - LEFT", data.timestamp);
     }
 
     // 右发燃油流量超限
-    if (data.rightEngine.fuelFlow > 50.0)
+    bool isRightHigh = isAlertActive(FaultType::FUEL_FLOW_HIGH, "FUEL FLOW HIGH - RIGHT");
+    double thresholdRight = isRightHigh ? (50.0 - FUEL_FLOW_HYSTERESIS) : 50.0;
+
+    if (data.rightEngine.fuelFlow > thresholdRight)
     {
         addAlert(FaultType::FUEL_FLOW_HIGH, AlertLevel::WARNING,
                  "FUEL FLOW HIGH - RIGHT", data.timestamp);
@@ -215,7 +251,11 @@ void AlertManager::checkFuelAbnormal(const SystemData &data)
     { // 只在有显著流量时检测
         double leftDiff = std::abs(data.leftEngine.fuelFlow - avgFlow) / avgFlow;
         double rightDiff = std::abs(data.rightEngine.fuelFlow - avgFlow) / avgFlow;
-        if (leftDiff > 0.15 || rightDiff > 0.15)
+
+        bool isImbalance = isAlertActive(FaultType::FUEL_IMBALANCE, "FUEL IMBALANCE");
+        double thresholdImbalance = isImbalance ? (0.15 - IMBALANCE_HYSTERESIS) : 0.15;
+
+        if (leftDiff > thresholdImbalance || rightDiff > thresholdImbalance)
         {
             addAlert(FaultType::FUEL_IMBALANCE, AlertLevel::CAUTION,
                      "FUEL IMBALANCE", data.timestamp);
@@ -223,50 +263,101 @@ void AlertManager::checkFuelAbnormal(const SystemData &data)
     }
 }
 
+bool AlertManager::isAlertActive(FaultType faultType, const std::string &message) const
+{
+    for (const auto &alert : activeAlerts_)
+    {
+        if (alert.faultType == faultType)
+        {
+            if (message.empty() || alert.message == message)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 void AlertManager::checkThrustAbnormal(const SystemData &data)
 {
+    // 迟滞阈值定义
+    const double N1_HYSTERESIS = 2.0; // 2% 的迟滞区间
+
     // 检查左发转速
     if (data.leftEngine.n1SensorValid)
     {
-        if (data.leftEngine.n1Percentage > 120.0)
+        // N1 > 120% (DANGER)
+        bool isOver120 = isAlertActive(FaultType::N1_OVERSPEED, "N1 OVERSPEED CRITICAL - LEFT");
+        double threshold120 = isOver120 ? (120.0 - N1_HYSTERESIS) : 120.0;
+
+        if (data.leftEngine.n1Percentage > threshold120)
         {
-            // 超转2级（红色，危险）
             addAlert(FaultType::N1_OVERSPEED, AlertLevel::DANGER,
                      "N1 OVERSPEED CRITICAL - LEFT", data.timestamp);
         }
-        else if (data.leftEngine.n1Percentage > 105.0)
+        else
         {
-            // 超转1级（黄色，警告）
-            addAlert(FaultType::N1_OVERSPEED, AlertLevel::WARNING,
-                     "N1 OVERSPEED - LEFT", data.timestamp);
+            // N1 > 105% (WARNING)
+            bool isOver105 = isAlertActive(FaultType::N1_OVERSPEED, "N1 OVERSPEED - LEFT");
+            double threshold105 = isOver105 ? (105.0 - N1_HYSTERESIS) : 105.0;
+
+            if (data.leftEngine.n1Percentage > threshold105)
+            {
+                addAlert(FaultType::N1_OVERSPEED, AlertLevel::WARNING,
+                         "N1 OVERSPEED - LEFT", data.timestamp);
+            }
         }
-        else if (data.leftEngine.n1Percentage < 30.0 &&
-                 data.leftEngine.state == SystemState::RUNNING)
+
+        // N1 < 30% (CAUTION)
+        if (data.leftEngine.state == SystemState::RUNNING)
         {
-            // 运行中转速过低
-            addAlert(FaultType::N1_LOW, AlertLevel::CAUTION,
-                     "N1 LOW - LEFT", data.timestamp);
+            bool isLow = isAlertActive(FaultType::N1_LOW, "N1 LOW - LEFT");
+            double thresholdLow = isLow ? (30.0 + N1_HYSTERESIS) : 30.0;
+
+            if (data.leftEngine.n1Percentage < thresholdLow)
+            {
+                addAlert(FaultType::N1_LOW, AlertLevel::CAUTION,
+                         "N1 LOW - LEFT", data.timestamp);
+            }
         }
     }
 
     // 检查右发转速
     if (data.rightEngine.n1SensorValid)
     {
-        if (data.rightEngine.n1Percentage > 120.0)
+        // N1 > 120% (DANGER)
+        bool isOver120 = isAlertActive(FaultType::N1_OVERSPEED, "N1 OVERSPEED CRITICAL - RIGHT");
+        double threshold120 = isOver120 ? (120.0 - N1_HYSTERESIS) : 120.0;
+
+        if (data.rightEngine.n1Percentage > threshold120)
         {
             addAlert(FaultType::N1_OVERSPEED, AlertLevel::DANGER,
                      "N1 OVERSPEED CRITICAL - RIGHT", data.timestamp);
         }
-        else if (data.rightEngine.n1Percentage > 105.0)
+        else
         {
-            addAlert(FaultType::N1_OVERSPEED, AlertLevel::WARNING,
-                     "N1 OVERSPEED - RIGHT", data.timestamp);
+            // N1 > 105% (WARNING)
+            bool isOver105 = isAlertActive(FaultType::N1_OVERSPEED, "N1 OVERSPEED - RIGHT");
+            double threshold105 = isOver105 ? (105.0 - N1_HYSTERESIS) : 105.0;
+
+            if (data.rightEngine.n1Percentage > threshold105)
+            {
+                addAlert(FaultType::N1_OVERSPEED, AlertLevel::WARNING,
+                         "N1 OVERSPEED - RIGHT", data.timestamp);
+            }
         }
-        else if (data.rightEngine.n1Percentage < 30.0 &&
-                 data.rightEngine.state == SystemState::RUNNING)
+
+        // N1 < 30% (CAUTION)
+        if (data.rightEngine.state == SystemState::RUNNING)
         {
-            addAlert(FaultType::N1_LOW, AlertLevel::CAUTION,
-                     "N1 LOW - RIGHT", data.timestamp);
+            bool isLow = isAlertActive(FaultType::N1_LOW, "N1 LOW - RIGHT");
+            double thresholdLow = isLow ? (30.0 + N1_HYSTERESIS) : 30.0;
+
+            if (data.rightEngine.n1Percentage < thresholdLow)
+            {
+                addAlert(FaultType::N1_LOW, AlertLevel::CAUTION,
+                         "N1 LOW - RIGHT", data.timestamp);
+            }
         }
     }
 
@@ -288,6 +379,9 @@ void AlertManager::checkThrustAbnormal(const SystemData &data)
 
 void AlertManager::checkTempAbnormal(const SystemData &data)
 {
+    // 迟滞阈值定义
+    const double EGT_HYSTERESIS = 15.0; // 15度迟滞
+
     // 左发温度检查
     if (data.leftEngine.egtSensorValid)
     {
@@ -297,39 +391,68 @@ void AlertManager::checkTempAbnormal(const SystemData &data)
         if (isStarting)
         {
             // 启动阶段：临时允许950°C
-            if (temp > 1000.0)
+            // > 1000 (DANGER)
+            bool isOver1000 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - LEFT");
+            double threshold1000 = isOver1000 ? (1000.0 - EGT_HYSTERESIS) : 1000.0;
+
+            if (temp > threshold1000)
             {
                 // 超温2（红色，立即停车）
                 addAlert(FaultType::EGT_OVERHEAT, AlertLevel::DANGER,
                          "EGT OVERTEMP CRITICAL - LEFT", data.timestamp);
             }
-            else if (temp > 950.0)
+            else
             {
-                // 超温1（黄色，警告）
-                addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
-                         "EGT OVERTEMP - LEFT (STARTING)", data.timestamp);
+                // > 950 (WARNING)
+                bool isOver950 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - LEFT (STARTING)");
+                double threshold950 = isOver950 ? (950.0 - EGT_HYSTERESIS) : 950.0;
+
+                if (temp > threshold950)
+                {
+                    // 超温1（黄色，警告）
+                    addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
+                             "EGT OVERTEMP - LEFT (STARTING)", data.timestamp);
+                }
             }
         }
         else if (isRunningPhase(data.leftEngine.state))
         {
             // 运行阶段：最高850°C
-            if (temp > 900.0)
+            // > 900 (DANGER)
+            bool isOver900 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - LEFT");
+            double threshold900 = isOver900 ? (900.0 - EGT_HYSTERESIS) : 900.0;
+
+            if (temp > threshold900)
             {
                 // 超温4（红色）
                 addAlert(FaultType::EGT_OVERHEAT, AlertLevel::DANGER,
                          "EGT OVERTEMP CRITICAL - LEFT", data.timestamp);
             }
-            else if (temp > 850.0)
+            else
             {
-                // 超温3（黄色）
-                addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
-                         "EGT OVERTEMP - LEFT", data.timestamp);
-            }
-            else if (temp < 400.0)
-            {
-                // 温度过低
-                addAlert(FaultType::EGT_LOW, AlertLevel::CAUTION,
-                         "EGT LOW - LEFT", data.timestamp);
+                // > 850 (WARNING)
+                bool isOver850 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - LEFT");
+                double threshold850 = isOver850 ? (850.0 - EGT_HYSTERESIS) : 850.0;
+
+                if (temp > threshold850)
+                {
+                    // 超温3（黄色）
+                    addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
+                             "EGT OVERTEMP - LEFT", data.timestamp);
+                }
+                else
+                {
+                    // < 400 (CAUTION)
+                    bool isLow = isAlertActive(FaultType::EGT_LOW, "EGT LOW - LEFT");
+                    double thresholdLow = isLow ? (400.0 + EGT_HYSTERESIS) : 400.0;
+
+                    if (temp < thresholdLow)
+                    {
+                        // 温度过低
+                        addAlert(FaultType::EGT_LOW, AlertLevel::CAUTION,
+                                 "EGT LOW - LEFT", data.timestamp);
+                    }
+                }
             }
         }
     }
@@ -342,33 +465,62 @@ void AlertManager::checkTempAbnormal(const SystemData &data)
 
         if (isStarting)
         {
-            if (temp > 1000.0)
+            // > 1000 (DANGER)
+            bool isOver1000 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - RIGHT");
+            double threshold1000 = isOver1000 ? (1000.0 - EGT_HYSTERESIS) : 1000.0;
+
+            if (temp > threshold1000)
             {
                 addAlert(FaultType::EGT_OVERHEAT, AlertLevel::DANGER,
                          "EGT OVERTEMP CRITICAL - RIGHT", data.timestamp);
             }
-            else if (temp > 950.0)
+            else
             {
-                addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
-                         "EGT OVERTEMP - RIGHT (STARTING)", data.timestamp);
+                // > 950 (WARNING)
+                bool isOver950 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - RIGHT (STARTING)");
+                double threshold950 = isOver950 ? (950.0 - EGT_HYSTERESIS) : 950.0;
+
+                if (temp > threshold950)
+                {
+                    addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
+                             "EGT OVERTEMP - RIGHT (STARTING)", data.timestamp);
+                }
             }
         }
         else if (isRunningPhase(data.rightEngine.state))
         {
-            if (temp > 900.0)
+            // > 900 (DANGER)
+            bool isOver900 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - RIGHT");
+            double threshold900 = isOver900 ? (900.0 - EGT_HYSTERESIS) : 900.0;
+
+            if (temp > threshold900)
             {
                 addAlert(FaultType::EGT_OVERHEAT, AlertLevel::DANGER,
                          "EGT OVERTEMP CRITICAL - RIGHT", data.timestamp);
             }
-            else if (temp > 850.0)
+            else
             {
-                addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
-                         "EGT OVERTEMP - RIGHT", data.timestamp);
-            }
-            else if (temp < 400.0)
-            {
-                addAlert(FaultType::EGT_LOW, AlertLevel::CAUTION,
-                         "EGT LOW - RIGHT", data.timestamp);
+                // > 850 (WARNING)
+                bool isOver850 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - RIGHT");
+                double threshold850 = isOver850 ? (850.0 - EGT_HYSTERESIS) : 850.0;
+
+                if (temp > threshold850)
+                {
+                    addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
+                             "EGT OVERTEMP - RIGHT", data.timestamp);
+                }
+                else
+                {
+                    // < 400 (CAUTION)
+                    bool isLow = isAlertActive(FaultType::EGT_LOW, "EGT LOW - RIGHT");
+                    double thresholdLow = isLow ? (400.0 + EGT_HYSTERESIS) : 400.0;
+
+                    if (temp < thresholdLow)
+                    {
+                        addAlert(FaultType::EGT_LOW, AlertLevel::CAUTION,
+                                 "EGT LOW - RIGHT", data.timestamp);
+                    }
+                }
             }
         }
     }
@@ -385,9 +537,10 @@ void AlertManager::addAlert(FaultType faultType, AlertLevel level,
     {
         if (alert.faultType == faultType && alert.message == message)
         {
-            // 如果已存在，刷新displayTimer
+            // 如果已存在，刷新displayTimer并标记为已更新
             alert.displayTimer = 5.0;
             alert.isActive = true;
+            alert.updated = true;
             exists = true;
             break;
         }
@@ -402,6 +555,7 @@ void AlertManager::addAlert(FaultType faultType, AlertLevel level,
         newAlert.message = message;
         newAlert.timestamp = timestamp;
         newAlert.isActive = true;
+        newAlert.updated = true;
         newAlert.displayTimer = 5.0; // 5秒显示时间
 
         activeAlerts_.push_back(newAlert);

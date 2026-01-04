@@ -146,7 +146,9 @@ private:
     // 随机数生成器（用于模拟真实波动）
     std::mt19937 randomGenerator_;
     std::uniform_real_distribution<double> fluctuationDist_;
-
+    // 当前注入的故障类型
+    FaultType currentFaultType_;
+    EngineID currentFaultEngineID_;
     // ==================== 私有辅助函数 ====================
 
     /**

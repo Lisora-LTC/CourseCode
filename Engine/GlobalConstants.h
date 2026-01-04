@@ -22,6 +22,7 @@ enum class AlertLevel
     ADVISORY, // 建议 - 白色告警
     CAUTION,  // 警戒 - 琥珀色
     WARNING,  // 警告 - 红色
+    DANGER,   // 危险 - 红色闪烁
     INVALID   // 无效 - 显示"--"
 };
 
@@ -38,31 +39,67 @@ enum class ButtonID
     START,           // 启动按钮
     STOP,            // 停车按钮
     INCREASE_THRUST, // 增加推力按钮
-    DECREASE_THRUST  // 减小推力按钮
+    DECREASE_THRUST, // 减小推力按钮
+    CLEAR_FAULT,     // 清除所有故障
+
+    // 传感器故障 (5个)
+    FAULT_SENSOR_N1_SINGLE,  // 单个转速传感器
+    FAULT_SENSOR_N1_ENGINE,  // 单发转速传感器
+    FAULT_SENSOR_EGT_SINGLE, // 单个EGT传感器
+    FAULT_SENSOR_EGT_ENGINE, // 单发EGT传感器
+    FAULT_SENSOR_DUAL,       // 双发传感器
+
+    // 燃油故障 (3个)
+    FAULT_FUEL_LOW,    // 燃油低
+    FAULT_FUEL_SENSOR, // 燃油传感器
+    FAULT_FUEL_FLOW,   // 燃油流速高
+
+    // 转速故障 (2个)
+    FAULT_N1_OVER_1, // 超转1
+    FAULT_N1_OVER_2, // 超转2
+
+    // 温度故障 (4个)
+    FAULT_TEMP_START_1, // 启动超温1
+    FAULT_TEMP_START_2, // 启动超温2
+    FAULT_TEMP_RUN_3,   // 稳态超温3
+    FAULT_TEMP_RUN_4    // 稳态超温4
 };
 
 // 故障类型枚举（进阶项用）
 enum class FaultType
 {
     NONE = 0,
+    // 双发失效
+    DUAL_ENGINE_FAILURE, // 双发失效
     // 传感器故障
+    SENSOR_FAULT,             // 通用传感器故障
     SINGLE_N1_SENSOR_FAULT,   // 单个转速传感器故障
     SINGLE_ENGINE_N1_FAULT,   // 单发转速传感器故障（双传感器）
     SINGLE_EGT_SENSOR_FAULT,  // 单个EGT传感器故障
     SINGLE_ENGINE_EGT_FAULT,  // 单发EGT传感器故障（双传感器）
     DUAL_ENGINE_SENSOR_FAULT, // 双发传感器故障
+    DUAL_SENSOR_FAULT,        // 双传感器故障
     // 燃油故障
     FUEL_LOW,          // 燃油余量低
     FUEL_SENSOR_FAULT, // 燃油传感器故障
     FUEL_FLOW_EXCEED,  // 燃油流速超限
+    FUEL_FLOW_LOW,     // 燃油流量低
+    FUEL_FLOW_HIGH,    // 燃油流量高
+    FUEL_IMBALANCE,    // 燃油不平衡
     // 转速异常
-    OVERSPEED_1, // 超转1（N1 > 105%）
-    OVERSPEED_2, // 超转2（N1 > 120%）
+    OVERSPEED_1,  // 超转1（N1 > 105%）
+    OVERSPEED_2,  // 超转2（N1 > 120%）
+    N1_OVERSPEED, // N1超速
+    N1_LOW,       // N1过低
+    // 启动异常
+    STARTER_TIMEOUT, // 启动超时
     // 温度异常
     OVERTEMP_1_STARTING, // 启动超温1（T > 850℃）
     OVERTEMP_2_STARTING, // 启动超温2（T > 1000℃）
     OVERTEMP_3_RUNNING,  // 稳态超温3（T > 950℃）
-    OVERTEMP_4_RUNNING   // 稳态超温4（T > 1100℃）
+    OVERTEMP_4_RUNNING,  // 稳态超温4（T > 1100℃）
+    EGT_OVERHEAT,        // EGT过热
+    EGT_LOW              // EGT过低
 };
 
 // ==================== 结构体定义 ====================
@@ -87,35 +124,56 @@ struct EngineData
     double n1Percentage;   // N1转速百分比（0-125%）
     double egtTemperature; // EGT温度（℃）
     SystemState state;     // 发动机状态
+    double fuelFlow;       // 燃油流量（kg/min）
+    double startupTime;    // 启动时间（秒）
+
+    // 便捷访问字段（用于简化代码）
+    bool n1SensorValid;  // N1传感器有效性（任一有效即为true）
+    bool egtSensorValid; // EGT传感器有效性（任一有效即为true）
 
     EngineData() : engineID(EngineID::LEFT),
                    n1Percentage(0.0),
                    egtTemperature(20.0),
-                   state(SystemState::OFF) {}
+                   state(SystemState::OFF),
+                   fuelFlow(0.0),
+                   startupTime(0.0),
+                   n1SensorValid(true),
+                   egtSensorValid(true) {}
 };
 
 // 燃油系统数据结构（全局共享）
 struct FuelData
 {
-    double capacity;  // 燃油余量C（0-20000单位）
-    double flowRate;  // 燃油流速V（单位/秒）
-    bool sensorValid; // 燃油传感器是否有效
+    double capacity;      // 燃油余量C（0-20000单位）
+    double flowRate;      // 燃油流速V（单位/秒）
+    double fuelQuantity;  // 燃油数量（kg）
+    bool fuelSensorValid; // 燃油传感器是否有效
 
-    FuelData() : capacity(20000.0), flowRate(0.0), sensorValid(true) {}
+    FuelData() : capacity(20000.0),
+                 flowRate(0.0),
+                 fuelQuantity(5000.0),
+                 fuelSensorValid(true) {}
 };
 
 // 系统整体数据结构
 struct SystemData
 {
-    EngineData leftEngine;  // 左发动机数据
-    EngineData rightEngine; // 右发动机数据
-    FuelData fuel;          // 燃油系统数据
-    double elapsedTime;     // 系统运行时间（秒）
+    EngineData leftEngine;   // 左发动机数据
+    EngineData rightEngine;  // 右发动机数据
+    FuelData fuel;           // 燃油系统数据
+    FuelData fuelData;       // 燃油数据别名（兼容性）
+    double elapsedTime;      // 系统运行时间（秒）
+    double timestamp;        // 时间戳（秒）
+    SystemState systemState; // 系统整体状态
 
-    SystemData() : elapsedTime(0.0)
+    SystemData() : elapsedTime(0.0),
+                   timestamp(0.0),
+                   systemState(SystemState::OFF)
     {
         leftEngine.engineID = EngineID::LEFT;
         rightEngine.engineID = EngineID::RIGHT;
+        // 让fuelData引用fuel（共享同一数据）
+        fuelData = fuel;
     }
 };
 
@@ -162,7 +220,7 @@ namespace Constants
     const double EGT_WARNING_RUN = 1100.0;    // 稳态超温4告警：1100℃
 
     // 波动范围
-    const double FLUCTUATION_RANGE = 0.03; // 稳态波动范围：±3%
+    const double FLUCTUATION_RANGE = 0.03; // 稳态波动范围：±3% (恢复老师要求的3%)
 
     // 告警显示时间
     const double ALERT_DISPLAY_DURATION = 5.0; // 告警显示持续时间：5秒

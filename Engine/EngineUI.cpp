@@ -1,7 +1,9 @@
+#define NOMINMAX
 #include "EngineUI.h"
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include <algorithm>
 #include <graphics.h> // EasyX图形库
 #include <conio.h>
 
@@ -22,7 +24,8 @@ EngineUI::EngineUI(int width, int height)
       initialized_(false),
       shouldClose_(false),
       startLightOn_(false),
-      runLightOn_(false)
+      runLightOn_(false),
+      currentFaultStatus_("No Fault Injected")
 {
     // 初始化按钮位置信息
 }
@@ -70,18 +73,55 @@ bool EngineUI::initialize()
     // 增加推力按钮 - 中间位置
     ButtonInfo incBtn;
     incBtn.id = ButtonID::INCREASE_THRUST;
-    incBtn.pos = Point(windowWidth_ / 2 - 60, windowHeight_ - 80);
-    incBtn.width = 120;
+    incBtn.pos = Point(windowWidth_ / 2 - 180, windowHeight_ - 80);
+    incBtn.width = 130;
     incBtn.height = BUTTON_HEIGHT;
     buttons_.push_back(incBtn);
 
     // 减小推力按钮 - 增加推力按钮右侧
     ButtonInfo decBtn;
     decBtn.id = ButtonID::DECREASE_THRUST;
-    decBtn.pos = Point(windowWidth_ / 2 + 80, windowHeight_ - 80);
-    decBtn.width = 120;
+    decBtn.pos = Point(windowWidth_ / 2 - 30, windowHeight_ - 80);
+    decBtn.width = 130;
     decBtn.height = BUTTON_HEIGHT;
     buttons_.push_back(decBtn);
+
+    // 故障注入按钮组（右下角，4x4网格）
+    // 14个故障 + 1个清除 = 15个按钮
+    int gridStartX = windowWidth_ - 500;
+    int gridStartY = windowHeight_ - 180;
+    int btnW = 115;
+    int btnH = 35;
+    int gap = 5;
+
+    struct FaultBtnDef
+    {
+        ButtonID id;
+        std::string label; // 暂时不用，drawAllButtons里定义
+    };
+
+    ButtonID faultIds[] = {
+        // Row 1: Sensor
+        ButtonID::FAULT_SENSOR_N1_SINGLE, ButtonID::FAULT_SENSOR_N1_ENGINE, ButtonID::FAULT_SENSOR_EGT_SINGLE, ButtonID::FAULT_SENSOR_EGT_ENGINE,
+        // Row 2: Sensor/Fuel
+        ButtonID::FAULT_SENSOR_DUAL, ButtonID::FAULT_FUEL_LOW, ButtonID::FAULT_FUEL_SENSOR, ButtonID::FAULT_FUEL_FLOW,
+        // Row 3: N1/Temp
+        ButtonID::FAULT_N1_OVER_1, ButtonID::FAULT_N1_OVER_2, ButtonID::FAULT_TEMP_START_1, ButtonID::FAULT_TEMP_START_2,
+        // Row 4: Temp/Clear
+        ButtonID::FAULT_TEMP_RUN_3, ButtonID::FAULT_TEMP_RUN_4, ButtonID::CLEAR_FAULT};
+
+    for (int i = 0; i < 15; i++)
+    {
+        int row = i / 4;
+        int col = i % 4;
+
+        ButtonInfo btn;
+        btn.id = faultIds[i];
+        btn.pos = Point(gridStartX + col * (btnW + gap), gridStartY + row * (btnH + gap));
+        btn.width = btnW;
+        btn.height = btnH;
+        buttons_.push_back(btn);
+    }
 
     initialized_ = true;
     return true;
@@ -106,10 +146,10 @@ void EngineUI::update(const SystemData &data, const std::vector<std::string> &al
     clear();
 
     // 2. 绘制标题
-    drawText("ENGINE INDICATION AND CREW ALERTING SYSTEM", Point(windowWidth_ / 2 - 200, 20), Color::White(), 20);
+    drawText("ENGINE INDICATION AND CREW ALERTING SYSTEM", Point(windowWidth_ / 2 - 250, 20), Color::White(), 20);
 
     // 3. 绘制左发动机表盘区域
-    int leftX = windowWidth_ / 4;
+    int leftX = windowWidth_ / 5;
     int gaugeY = 200;
 
     // 计算左发告警级别
@@ -123,7 +163,7 @@ void EngineUI::update(const SystemData &data, const std::vector<std::string> &al
     drawEGTGauge(data.leftEngine, leftEGTLevel, Point(leftX, gaugeY + 200));
 
     // 4. 绘制右发动机表盘区域
-    int rightX = windowWidth_ * 3 / 4;
+    int rightX = windowWidth_ / 2;
 
     // 计算右发告警级别
     AlertLevel rightN1Level = calculateN1AlertLevel(data.rightEngine);
@@ -135,23 +175,20 @@ void EngineUI::update(const SystemData &data, const std::vector<std::string> &al
     // 右发EGT表盘
     drawEGTGauge(data.rightEngine, rightEGTLevel, Point(rightX, gaugeY + 200));
 
-    // 5. 绘制燃油流速显示（中间位置）
-    drawFuelFlowDisplay(data.fuel, AlertLevel::NORMAL, Point(windowWidth_ / 2, gaugeY + 100));
+    // 5. 绘制燃油流速显示（中下位置，避免挡住发动机）
+    drawFuelFlowDisplay(data.fuel, AlertLevel::NORMAL, Point(windowWidth_ / 2, gaugeY + 320));
 
     // 6. 绘制状态指示器
     drawStatusIndicators(data, Point(windowWidth_ / 2 - 100, 100));
 
-    // 7. 绘制按钮
-    drawAllButtons();
-
-    // 8. 绘制告警消息（右侧CAS区域）
-    int casX = windowWidth_ - 320;
+    // 7. 绘制告警消息（最右侧CAS区域）
+    int casX = windowWidth_ - 380;
     int casY = 80;
 
     // 绘制CAS区域边框
     setlinecolor(RGB(100, 100, 100));
     setlinestyle(PS_SOLID, 2);
-    rectangle(casX - 10, casY - 10, windowWidth_ - 20, casY + 450);
+    rectangle(casX - 10, casY - 10, windowWidth_ - 20, casY + 550);
 
     // 绘制CAS标题
     settextcolor(RGB(200, 200, 200));
@@ -174,7 +211,13 @@ void EngineUI::update(const SystemData &data, const std::vector<std::string> &al
         outtextxy(casX + 20, casY + 60, L"NO ALERTS");
     }
 
-    // 9. 刷新显示
+    // 8. 绘制当前故障状态显示
+    drawFaultStatusDisplay();
+
+    // 9. 绘制按钮（最后绘制，确保不被覆盖）
+    drawAllButtons();
+
+    // 10. 刷新显示
     present();
 }
 
@@ -283,7 +326,8 @@ void EngineUI::drawGauge(double value, double minVal, double maxVal,
     settextcolor(RGB(gaugeColor.r, gaugeColor.g, gaugeColor.b));
     settextstyle(28, 0, L"Arial");
 
-    std::wstring wvalue(oss.str().begin(), oss.str().end());
+    std::string valueStr = oss.str();
+    std::wstring wvalue(valueStr.begin(), valueStr.end());
     int textWidth = textwidth(wvalue.c_str());
     int textHeight = textheight(wvalue.c_str());
     outtextxy((int)(pos.x - textWidth / 2), (int)(pos.y + 20), wvalue.c_str());
@@ -361,17 +405,25 @@ void EngineUI::drawDigitalDisplay(double value, AlertLevel level, Point pos,
     // 绘制数值
     settextcolor(RGB(color.r, color.g, color.b));
     settextstyle(18, 0, L"Arial");
-    std::wstring wvalue(oss.str().begin(), oss.str().end());
+    std::string valueStr = oss.str();
+    std::wstring wvalue(valueStr.begin(), valueStr.end());
     outtextxy((int)pos.x + 60, (int)pos.y - 2, wvalue.c_str());
 }
 
 void EngineUI::drawFuelFlowDisplay(const FuelData &fuelData, AlertLevel level, Point pos)
 {
+    // 检查燃油传感器是否有效
+    AlertLevel displayLevel = level;
+    if (!fuelData.fuelSensorValid)
+    {
+        displayLevel = AlertLevel::INVALID;
+    }
+
     // 显示燃油余量
-    drawDigitalDisplay(fuelData.capacity, level, Point(pos.x, pos.y), "FUEL", "units", 0);
+    drawDigitalDisplay(fuelData.capacity, displayLevel, Point(pos.x, pos.y), "FUEL", "units", 0);
 
     // 显示燃油流速
-    drawDigitalDisplay(fuelData.flowRate, level, Point(pos.x, pos.y + 40), "FLOW", "u/s", 1);
+    drawDigitalDisplay(fuelData.flowRate, displayLevel, Point(pos.x, pos.y + 40), "FLOW", "u/s", 1);
 }
 
 // ==================== 状态显示函数 ====================
@@ -485,6 +537,59 @@ void EngineUI::drawAllButtons()
             break;
         case ButtonID::DECREASE_THRUST:
             label = "DECR THRUST";
+            break;
+        case ButtonID::CLEAR_FAULT:
+            label = "CLEAR ALL";
+            break;
+
+        // Sensor
+        case ButtonID::FAULT_SENSOR_N1_SINGLE:
+            label = "N1 SENSOR";
+            break;
+        case ButtonID::FAULT_SENSOR_N1_ENGINE:
+            label = "ENG N1 FLT";
+            break;
+        case ButtonID::FAULT_SENSOR_EGT_SINGLE:
+            label = "EGT SENSOR";
+            break;
+        case ButtonID::FAULT_SENSOR_EGT_ENGINE:
+            label = "ENG EGT FLT";
+            break;
+        case ButtonID::FAULT_SENSOR_DUAL:
+            label = "DUAL SENSOR";
+            break;
+
+        // Fuel
+        case ButtonID::FAULT_FUEL_LOW:
+            label = "FUEL LOW";
+            break;
+        case ButtonID::FAULT_FUEL_SENSOR:
+            label = "FUEL SENS";
+            break;
+        case ButtonID::FAULT_FUEL_FLOW:
+            label = "FLOW HIGH";
+            break;
+
+        // N1
+        case ButtonID::FAULT_N1_OVER_1:
+            label = "N1 > 105%";
+            break;
+        case ButtonID::FAULT_N1_OVER_2:
+            label = "N1 > 120%";
+            break;
+
+        // Temp
+        case ButtonID::FAULT_TEMP_START_1:
+            label = "ST > 850";
+            break;
+        case ButtonID::FAULT_TEMP_START_2:
+            label = "ST > 1000";
+            break;
+        case ButtonID::FAULT_TEMP_RUN_3:
+            label = "RUN > 950";
+            break;
+        case ButtonID::FAULT_TEMP_RUN_4:
+            label = "RUN > 1100";
             break;
         }
         drawButton(btn.id, btn.pos, btn.width, btn.height, label, true);
@@ -649,19 +754,19 @@ AlertLevel EngineUI::calculateN1AlertLevel(const EngineData &engine) const
 
     double n1 = engine.n1Percentage;
 
-    // 超转2级（>120%）- 危险
+    // 超转2级（>120%）- 危险 (红色)
     if (n1 > 120.0)
     {
-        return AlertLevel::DANGER;
+        return AlertLevel::WARNING; // 题目要求红色为WARNING
     }
 
-    // 超转1级（>105%）- 警告
+    // 超转1级（>105%）- 警戒 (琥珀色)
     if (n1 > 105.0)
     {
-        return AlertLevel::WARNING;
+        return AlertLevel::CAUTION;
     }
 
-    // 运行中转速过低（<30%）- 注意
+    // 运行中转速过低（<30%）- 警戒 (琥珀色)
     if (engine.state == SystemState::RUNNING && n1 < 30.0)
     {
         return AlertLevel::CAUTION;
@@ -689,23 +794,23 @@ AlertLevel EngineUI::calculateEGTAlertLevel(const EngineData &engine) const
         // 启动阶段：临时允许950°C
         if (egt > 1000.0)
         {
-            return AlertLevel::DANGER; // 超温2
+            return AlertLevel::WARNING; // 超温2 (红色)
         }
-        if (egt > 950.0)
+        if (egt > 850.0)
         {
-            return AlertLevel::WARNING; // 超温1
+            return AlertLevel::CAUTION; // 超温1 (琥珀色)
         }
     }
     else if (isRunning)
     {
         // 运行阶段：最高850°C
-        if (egt > 900.0)
+        if (egt > 1100.0)
         {
-            return AlertLevel::DANGER; // 超温4
+            return AlertLevel::WARNING; // 超温4 (红色)
         }
-        if (egt > 850.0)
+        if (egt > 950.0)
         {
-            return AlertLevel::WARNING; // 超温3
+            return AlertLevel::CAUTION; // 超温3 (琥珀色)
         }
         if (egt < 400.0)
         {
@@ -740,4 +845,53 @@ bool EngineUI::pointInRect(int px, int py, Point rect, double width, double heig
 {
     return px >= rect.x && px <= rect.x + width &&
            py >= rect.y && py <= rect.y + height;
+}
+
+void EngineUI::setCurrentFaultStatus(const std::string &faultText)
+{
+    currentFaultStatus_ = faultText;
+}
+
+void EngineUI::drawFaultStatusDisplay()
+{
+    // 在屏幕底部中央，按钮上方显示当前故障状态
+    // 左移位置以平衡视觉 (原X: windowWidth_ / 2 - 300)
+    int boxX = 50; // 靠左放置
+    int boxY = windowHeight_ - 220;
+    int boxWidth = 600;
+    int boxHeight = 80; // 恢复高度
+    fillrectangle(boxX, boxY, boxX + boxWidth, boxY + boxHeight);
+
+    // 绘制边框
+    setlinecolor(RGB(100, 150, 255)); // 蓝色边框
+    setlinestyle(PS_SOLID, 2);
+    rectangle(boxX, boxY, boxX + boxWidth, boxY + boxHeight);
+
+    // 绘制标题
+    settextcolor(RGB(100, 150, 255));
+    settextstyle(16, 0, L"Arial Bold");
+    outtextxy(boxX + 10, boxY + 8, L"CURRENT FAULT INJECTION:");
+
+    // 绘制故障状态文本
+    Color textColor = Color::White();
+    if (currentFaultStatus_.find("No Fault") != std::string::npos)
+    {
+        textColor = Color(0, 255, 0); // 绿色表示无故障
+    }
+    else if (currentFaultStatus_.find("CAUTION") != std::string::npos ||
+             currentFaultStatus_.find("Amber") != std::string::npos)
+    {
+        textColor = Color::Amber(); // 琥珀色警告
+    }
+    else if (currentFaultStatus_.find("WARNING") != std::string::npos ||
+             currentFaultStatus_.find("Red") != std::string::npos)
+    {
+        textColor = Color::Red(); // 红色警告
+    }
+
+    settextcolor(RGB(textColor.r, textColor.g, textColor.b));
+    settextstyle(18, 0, L"Arial Bold");
+
+    std::wstring wtext(currentFaultStatus_.begin(), currentFaultStatus_.end());
+    outtextxy(boxX + 20, boxY + 40, wtext.c_str());
 }

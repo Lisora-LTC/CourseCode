@@ -30,6 +30,12 @@ AlertManager *g_alertManager = nullptr; // 告警管理器
 EngineUI *g_ui = nullptr;               // 用户界面
 Logger *g_logger = nullptr;             // 日志记录器
 
+// 故障注入循环索引
+int g_sensorFaultIndex = 0; // 传感器故障索引 (0-5)
+int g_fuelFaultIndex = 0;   // 燃油故障索引 (0-2)
+int g_n1FaultIndex = 0;     // 转速故障索引 (0-1)
+int g_tempFaultIndex = 0;   // 温度故障索引 (0-3)
+
 bool g_running = true;                        // 主循环运行标志
 double g_lastUIUpdateTime = 0.0;              // 上次UI更新时间
 const double UI_UPDATE_INTERVAL = 1.0 / 30.0; // UI更新间隔（30Hz）
@@ -176,7 +182,7 @@ bool initializeSystem()
     }
 
     // 4. 创建EngineUI实例并初始化图形界面
-    g_ui = new EngineUI(1280, 720);
+    g_ui = new EngineUI(1600, 900);
     if (!g_ui || !g_ui->initialize())
     {
         std::cerr << "Failed to initialize EngineUI!" << std::endl;
@@ -227,23 +233,115 @@ void onButtonClicked(ButtonID buttonID)
     switch (buttonID)
     {
     case ButtonID::START:
-        std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: START" << std::endl;
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "[" << g_simulator->getElapsedTime() << "s] ENGINE START INITIATED" << std::endl;
+        std::cout << "Starting engine sequence..." << std::endl;
+        std::cout << "========================================\n"
+                  << std::endl;
         g_simulator->startEngine();
         break;
 
     case ButtonID::STOP:
-        std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: STOP (Priority)" << std::endl;
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "[" << g_simulator->getElapsedTime() << "s] ENGINE STOP COMMANDED" << std::endl;
+        std::cout << "Initiating shutdown sequence (Priority)" << std::endl;
+        std::cout << "========================================\n"
+                  << std::endl;
         g_simulator->stopEngine();
         break;
 
     case ButtonID::INCREASE_THRUST:
-        std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: INCREASE THRUST" << std::endl;
+        std::cout << "[" << g_simulator->getElapsedTime() << "s] THRUST INCREASED" << std::endl;
+        std::cout << "   Fuel flow +1 unit/s, N1/EGT +3~5%" << std::endl;
         g_simulator->adjustThrust(+1);
         break;
 
     case ButtonID::DECREASE_THRUST:
-        std::cout << "[" << g_simulator->getElapsedTime() << "s] Button: DECREASE THRUST" << std::endl;
+        std::cout << "[" << g_simulator->getElapsedTime() << "s] THRUST DECREASED" << std::endl;
+        std::cout << "   Fuel flow -1 unit/s, N1/EGT -3~5%" << std::endl;
         g_simulator->adjustThrust(-1);
+        break;
+
+    // ==================== 传感器故障 ====================
+    case ButtonID::FAULT_SENSOR_N1_SINGLE:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::SINGLE_N1_SENSOR_FAULT);
+        g_ui->setCurrentFaultStatus("#1 Single N1 Sensor Fault - ADVISORY (White)");
+        break;
+    case ButtonID::FAULT_SENSOR_N1_ENGINE:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::SINGLE_ENGINE_N1_FAULT);
+        g_ui->setCurrentFaultStatus("#2 Single Engine N1 Fault - CAUTION (Amber)");
+        break;
+    case ButtonID::FAULT_SENSOR_EGT_SINGLE:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::SINGLE_EGT_SENSOR_FAULT);
+        g_ui->setCurrentFaultStatus("#3 Single EGT Sensor Fault - ADVISORY (White)");
+        break;
+    case ButtonID::FAULT_SENSOR_EGT_ENGINE:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::SINGLE_ENGINE_EGT_FAULT);
+        g_ui->setCurrentFaultStatus("#4 Single Engine EGT Fault - CAUTION (Amber)");
+        break;
+    case ButtonID::FAULT_SENSOR_DUAL:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::DUAL_ENGINE_SENSOR_FAULT);
+        g_ui->setCurrentFaultStatus("#5 Dual Engine Sensor Fault - WARNING (Red)");
+        break;
+
+    // ==================== 燃油故障 ====================
+    case ButtonID::FAULT_FUEL_LOW:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::FUEL_LOW);
+        g_ui->setCurrentFaultStatus("#7 Fuel Low - CAUTION (Amber)");
+        break;
+    case ButtonID::FAULT_FUEL_SENSOR:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::FUEL_SENSOR_FAULT);
+        g_ui->setCurrentFaultStatus("#8 Fuel Sensor Fault - WARNING (Red)");
+        break;
+    case ButtonID::FAULT_FUEL_FLOW:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::FUEL_FLOW_EXCEED); // or FUEL_FLOW_HIGH
+        g_ui->setCurrentFaultStatus("#9 Fuel Flow Exceed - CAUTION (Amber)");
+        break;
+
+    // ==================== 转速故障 ====================
+    case ButtonID::FAULT_N1_OVER_1:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::OVERSPEED_1);
+        g_ui->setCurrentFaultStatus("#10 Overspeed 1 - CAUTION (Amber)");
+        break;
+    case ButtonID::FAULT_N1_OVER_2:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::OVERSPEED_2);
+        g_ui->setCurrentFaultStatus("#11 Overspeed 2 - WARNING (Red)");
+        break;
+
+    // ==================== 温度故障 ====================
+    case ButtonID::FAULT_TEMP_START_1:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::OVERTEMP_1_STARTING);
+        g_ui->setCurrentFaultStatus("#12 Overtemp 1 Starting - CAUTION (Amber)");
+        break;
+    case ButtonID::FAULT_TEMP_START_2:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::OVERTEMP_2_STARTING);
+        g_ui->setCurrentFaultStatus("#13 Overtemp 2 Starting - WARNING (Red)");
+        break;
+    case ButtonID::FAULT_TEMP_RUN_3:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::OVERTEMP_3_RUNNING);
+        g_ui->setCurrentFaultStatus("#14 Overtemp 3 Running - CAUTION (Amber)");
+        break;
+    case ButtonID::FAULT_TEMP_RUN_4:
+        g_simulator->injectFault(EngineID::LEFT, FaultType::OVERTEMP_4_RUNNING);
+        g_ui->setCurrentFaultStatus("#15 Overtemp 4 Running - WARNING (Red)");
+        break;
+
+    case ButtonID::CLEAR_FAULT:
+        std::cout << "\n========================================" << std::endl;
+        std::cout << "[" << g_simulator->getElapsedTime() << "s] ALL FAULTS CLEARED" << std::endl;
+        std::cout << "System reset to normal operation" << std::endl;
+        std::cout << "========================================\n"
+                  << std::endl;
+
+        g_simulator->clearFault(EngineID::LEFT);
+        g_simulator->clearFault(EngineID::RIGHT);
+        g_ui->setCurrentFaultStatus("No Fault Injected");
+
+        // 重置循环索引 (虽然现在不用了，但保留也无妨)
+        g_sensorFaultIndex = 0;
+        g_fuelFaultIndex = 0;
+        g_n1FaultIndex = 0;
+        g_tempFaultIndex = 0;
         break;
     }
 }
@@ -266,7 +364,7 @@ void update(double deltaTime)
     std::vector<AlertInfo> newAlerts = g_alertManager->getNewAlerts();
     for (const auto &alert : newAlerts)
     {
-        g_logger->recordEvent(alert.timestamp, alert.faultType, alert.message);
+        g_logger->recordAlert(alert.timestamp, alert);
     }
 
     // 6. 记录数据到CSV（每1秒记录一次）
@@ -274,8 +372,7 @@ void update(double deltaTime)
     dataLogTimer += deltaTime;
     if (dataLogTimer >= 1.0)
     {
-        g_logger->recordData(data.timestamp, data.leftEngine, data.rightEngine,
-                             data.fuelData, highestLevel);
+        g_logger->recordData(data.timestamp, data);
         dataLogTimer = 0.0;
     }
 
