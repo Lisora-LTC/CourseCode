@@ -52,3 +52,5 @@ ipch/
 *.cso
 *.pso
 *.mp4
+
+*.ps1

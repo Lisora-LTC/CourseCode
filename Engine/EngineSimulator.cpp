@@ -8,6 +8,10 @@ EngineSimulator::EngineSimulator()
     : startingTimer_(0.0),
       stoppingTimer_(0.0),
       thrustLevel_(1.0),
+      targetLeftN1_(0.0),
+      targetLeftEGT_(Constants::T0_AMBIENT),
+      targetRightN1_(0.0),
+      targetRightEGT_(Constants::T0_AMBIENT),
       randomGenerator_(std::random_device{}()),
       fluctuationDist_(-1.0, 1.0),
       currentFaultType_(FaultType::NONE),
@@ -75,10 +79,11 @@ void EngineSimulator::update(double dt)
 
 void EngineSimulator::startEngine()
 {
-    // 1. 检查当前状态是否为OFF
-    if (systemData_.leftEngine.state != SystemState::OFF)
+    // 1. 检查当前状态是否为OFF或STOPPING（允许在停车过程中重新启动）
+    if (systemData_.leftEngine.state != SystemState::OFF &&
+        systemData_.leftEngine.state != SystemState::STOPPING)
     {
-        return; // 已经启动，不重复启动
+        return; // 已经启动或正在运行，不重复启动
     }
 
     // 2. 切换到STARTING_P1状态
@@ -89,6 +94,7 @@ void EngineSimulator::startEngine()
     startingTimer_ = 0.0;
 
     // 4. 初始化相关参数
+    // 如果是从STOPPING状态重启，可以选择保留当前转速，这里简单处理为重置
     systemData_.leftEngine.n1Percentage = 0.0;
     systemData_.leftEngine.egtTemperature = Constants::T0_AMBIENT;
     systemData_.rightEngine.n1Percentage = 0.0;
@@ -280,6 +286,46 @@ bool EngineSimulator::isStopping() const
            systemData_.rightEngine.state == SystemState::STOPPING;
 }
 
+bool EngineSimulator::isFaultActive() const
+{
+    return currentFaultType_ != FaultType::NONE;
+}
+
+bool EngineSimulator::isFaultTargetReached() const
+{
+    if (currentFaultType_ == FaultType::NONE)
+    {
+        return true;
+    }
+
+    // 定义判断"到达"的容差
+    // 由于有随机波动(±3%)，容差必须大于波动范围
+    // 但不能太大，否则会导致刚进入告警区就误判为"已到达"从而提前停车
+    // N1: 3%波动 -> 容差设为 2.0 (需要更精确的接近)
+    // EGT: 3%波动 -> 容差设为 15.0 (需要更精确的接近)
+    const double TOLERANCE_N1 = 2.0;
+    const double TOLERANCE_EGT = 15.0;
+
+    bool leftReached = true;
+    bool rightReached = true;
+
+    // 检查左发
+    if (std::abs(systemData_.leftEngine.n1Percentage - targetLeftN1_) > TOLERANCE_N1)
+        leftReached = false;
+    if (std::abs(systemData_.leftEngine.egtTemperature - targetLeftEGT_) > TOLERANCE_EGT)
+        leftReached = false;
+
+    // 检查右发
+    if (std::abs(systemData_.rightEngine.n1Percentage - targetRightN1_) > TOLERANCE_N1)
+        rightReached = false;
+    if (std::abs(systemData_.rightEngine.egtTemperature - targetRightEGT_) > TOLERANCE_EGT)
+        rightReached = false;
+
+    // 只要有一个发动机未达到目标，就认为整体未达到
+    // (对于单发故障，未故障的发动机始终处于"到达"状态，所以逻辑成立)
+    return leftReached && rightReached;
+}
+
 // ==================== 私有辅助函数 ====================
 
 // 辅助函数：平滑移动数值
@@ -346,7 +392,7 @@ void EngineSimulator::updateStartingPhase2(double dt)
 
     if (currentFaultType_ == FaultType::OVERTEMP_1_STARTING)
     {
-        targetEngine->egtTemperature = 900.0; // > 850
+        targetEngine->egtTemperature = 980.0; // > 950
     }
     else if (currentFaultType_ == FaultType::OVERTEMP_2_STARTING)
     {
@@ -417,12 +463,12 @@ void EngineSimulator::updateRunningPhase(double dt)
     case FaultType::OVERSPEED_2:
         if (currentFaultEngineID_ == EngineID::LEFT)
         {
-            leftTargetN1 = 122.0;
+            leftTargetN1 = 126.0; // 提高目标值，确保超过120%后仍有上升空间
             leftTargetEGT = 960.0;
         }
         else
         {
-            rightTargetN1 = 122.0;
+            rightTargetN1 = 126.0;
             rightTargetEGT = 960.0;
         }
         finalTargetFlow = 52.0;
@@ -431,7 +477,7 @@ void EngineSimulator::updateRunningPhase(double dt)
     case FaultType::OVERTEMP_3_RUNNING:
         if (currentFaultEngineID_ == EngineID::LEFT)
         {
-            leftTargetEGT = 980.0;
+            leftTargetEGT = 980.0; // > 950 (WARNING)
             leftTargetN1 = 98.0;
         }
         else
@@ -445,12 +491,12 @@ void EngineSimulator::updateRunningPhase(double dt)
     case FaultType::OVERTEMP_4_RUNNING:
         if (currentFaultEngineID_ == EngineID::LEFT)
         {
-            leftTargetEGT = 1150.0;
+            leftTargetEGT = 1080.0; // 提高目标值，确保超过1000度后仍有上升空间
             leftTargetN1 = 100.0;
         }
         else
         {
-            rightTargetEGT = 1150.0;
+            rightTargetEGT = 1080.0;
             rightTargetN1 = 100.0;
         }
         finalTargetFlow = 48.0;
@@ -471,11 +517,11 @@ void EngineSimulator::updateRunningPhase(double dt)
     case FaultType::OVERTEMP_2_STARTING:
         if (currentFaultEngineID_ == EngineID::LEFT)
         {
-            leftTargetEGT = 1050.0; // > 1000
+            leftTargetEGT = 1080.0; // 提高目标值，确保超过1000度后仍有上升空间
         }
         else
         {
-            rightTargetEGT = 1050.0;
+            rightTargetEGT = 1080.0;
         }
         break;
 
@@ -488,6 +534,12 @@ void EngineSimulator::updateRunningPhase(double dt)
     double n1Rate = 20.0;   // % per second
     double egtRate = 100.0; // C per second
     double flowRate = 10.0; // units per second
+
+    // 更新成员变量中的目标值（用于 isFaultTargetReached 判断）
+    targetLeftN1_ = leftTargetN1;
+    targetLeftEGT_ = leftTargetEGT;
+    targetRightN1_ = rightTargetN1;
+    targetRightEGT_ = rightTargetEGT;
 
     // 4. 应用随机波动 (Fluctuation)
     // 修正逻辑：将波动应用在"目标值"上，而不是"当前值"上。

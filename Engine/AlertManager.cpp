@@ -417,12 +417,12 @@ void AlertManager::checkTempAbnormal(const SystemData &data)
         }
         else if (isRunningPhase(data.leftEngine.state))
         {
-            // 运行阶段：最高850°C
-            // > 900 (DANGER)
-            bool isOver900 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - LEFT");
-            double threshold900 = isOver900 ? (900.0 - EGT_HYSTERESIS) : 900.0;
+            // 运行阶段：最高950°C
+            // > 1000 (DANGER)
+            bool isOver1000 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - LEFT");
+            double threshold1000 = isOver1000 ? (1000.0 - EGT_HYSTERESIS) : 1000.0;
 
-            if (temp > threshold900)
+            if (temp > threshold1000)
             {
                 // 超温4（红色）
                 addAlert(FaultType::EGT_OVERHEAT, AlertLevel::DANGER,
@@ -430,11 +430,11 @@ void AlertManager::checkTempAbnormal(const SystemData &data)
             }
             else
             {
-                // > 850 (WARNING)
-                bool isOver850 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - LEFT");
-                double threshold850 = isOver850 ? (850.0 - EGT_HYSTERESIS) : 850.0;
+                // > 950 (WARNING)
+                bool isOver950 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - LEFT");
+                double threshold950 = isOver950 ? (950.0 - EGT_HYSTERESIS) : 950.0;
 
-                if (temp > threshold850)
+                if (temp > threshold950)
                 {
                     // 超温3（黄色）
                     addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
@@ -489,22 +489,22 @@ void AlertManager::checkTempAbnormal(const SystemData &data)
         }
         else if (isRunningPhase(data.rightEngine.state))
         {
-            // > 900 (DANGER)
-            bool isOver900 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - RIGHT");
-            double threshold900 = isOver900 ? (900.0 - EGT_HYSTERESIS) : 900.0;
+            // > 1000 (DANGER)
+            bool isOver1000 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP CRITICAL - RIGHT");
+            double threshold1000 = isOver1000 ? (1000.0 - EGT_HYSTERESIS) : 1000.0;
 
-            if (temp > threshold900)
+            if (temp > threshold1000)
             {
                 addAlert(FaultType::EGT_OVERHEAT, AlertLevel::DANGER,
                          "EGT OVERTEMP CRITICAL - RIGHT", data.timestamp);
             }
             else
             {
-                // > 850 (WARNING)
-                bool isOver850 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - RIGHT");
-                double threshold850 = isOver850 ? (850.0 - EGT_HYSTERESIS) : 850.0;
+                // > 950 (WARNING)
+                bool isOver950 = isAlertActive(FaultType::EGT_OVERHEAT, "EGT OVERTEMP - RIGHT");
+                double threshold950 = isOver950 ? (950.0 - EGT_HYSTERESIS) : 950.0;
 
-                if (temp > threshold850)
+                if (temp > threshold950)
                 {
                     addAlert(FaultType::EGT_OVERHEAT, AlertLevel::WARNING,
                              "EGT OVERTEMP - RIGHT", data.timestamp);

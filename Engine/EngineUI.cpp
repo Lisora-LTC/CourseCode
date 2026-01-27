@@ -459,10 +459,31 @@ void EngineUI::updateIndicators(const SystemData &data)
                      data.rightEngine.state == SystemState::STARTING_P2);
 
     // RUN灯：稳态运行且N1 >= 95%时亮起
-    runLightOn_ = ((data.leftEngine.state == SystemState::RUNNING &&
-                    data.leftEngine.n1Percentage >= 95.0) ||
-                   (data.rightEngine.state == SystemState::RUNNING &&
-                    data.rightEngine.n1Percentage >= 95.0));
+    // 添加迟滞逻辑：
+    // - 如果当前是灭的，需要 >= 95% 才亮
+    // - 如果当前是亮的，需要 < 90% 才灭
+    // 这样避免在95%附近波动时闪烁
+    bool isRunning = (data.leftEngine.state == SystemState::RUNNING ||
+                      data.rightEngine.state == SystemState::RUNNING);
+
+    double maxN1 = std::max(data.leftEngine.n1Percentage, data.rightEngine.n1Percentage);
+
+    if (runLightOn_)
+    {
+        // 保持亮灯，直到转速明显下降
+        if (!isRunning || maxN1 < 90.0)
+        {
+            runLightOn_ = false;
+        }
+    }
+    else
+    {
+        // 点亮灯，需要达到目标转速
+        if (isRunning && maxN1 >= 95.0)
+        {
+            runLightOn_ = true;
+        }
+    }
 }
 
 // ==================== 告警显示函数 ====================
@@ -580,7 +601,7 @@ void EngineUI::drawAllButtons()
 
         // Temp
         case ButtonID::FAULT_TEMP_START_1:
-            label = "ST > 850";
+            label = "ST > 950";
             break;
         case ButtonID::FAULT_TEMP_START_2:
             label = "ST > 1000";
@@ -589,7 +610,7 @@ void EngineUI::drawAllButtons()
             label = "RUN > 950";
             break;
         case ButtonID::FAULT_TEMP_RUN_4:
-            label = "RUN > 1100";
+            label = "RUN > 1000";
             break;
         }
         drawButton(btn.id, btn.pos, btn.width, btn.height, label, true);
@@ -803,8 +824,8 @@ AlertLevel EngineUI::calculateEGTAlertLevel(const EngineData &engine) const
     }
     else if (isRunning)
     {
-        // 运行阶段：最高850°C
-        if (egt > 1100.0)
+        // 运行阶段：最高950°C
+        if (egt > 1000.0)
         {
             return AlertLevel::WARNING; // 超温4 (红色)
         }
@@ -860,6 +881,9 @@ void EngineUI::drawFaultStatusDisplay()
     int boxY = windowHeight_ - 220;
     int boxWidth = 600;
     int boxHeight = 80; // 恢复高度
+
+    // 设置背景填充色为黑色，防止闪烁
+    setfillcolor(BLACK);
     fillrectangle(boxX, boxY, boxX + boxWidth, boxY + boxHeight);
 
     // 绘制边框

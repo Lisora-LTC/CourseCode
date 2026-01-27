@@ -135,6 +135,21 @@ public:
      */
     bool isStopping() const;
 
+    /**
+     * @brief 检查当前是否有故障注入
+     * @return true表示当前有故障正在模拟
+     */
+    bool isFaultActive() const;
+
+    /**
+     * @brief 检查故障目标是否已达成
+     * @return true表示物理参数已经接近故障设定的目标值
+     *
+     * 用于判断是否应该触发强制停车。
+     * 如果故障正在进行中（参数正在爬升），则返回false。
+     */
+    bool isFaultTargetReached() const;
+
 private:
     // ==================== 私有成员变量 ====================
 
@@ -142,6 +157,12 @@ private:
     double startingTimer_;  // 启动阶段计时器
     double stoppingTimer_;  // 停车阶段计时器
     double thrustLevel_;    // 推力级别（影响稳态数值）
+
+    // 当前的目标值（用于判断是否到达）
+    double targetLeftN1_;
+    double targetLeftEGT_;
+    double targetRightN1_;
+    double targetRightEGT_;
 
     // 随机数生成器（用于模拟真实波动）
     std::mt19937 randomGenerator_;

@@ -357,6 +357,43 @@ void update(double deltaTime)
     // 3. 检测告警条件
     AlertLevel highestLevel = g_alertManager->checkCondition(data);
 
+    // 红色告警强制停车逻辑
+    // 仅在 DANGER (危险) 级别时强制停车，WARNING (警告) 级别不停车
+    // 如果是手动注入故障，必须等待物理参数真正达到故障目标值后才停车
+    bool shouldStop = false;
+    if (highestLevel == AlertLevel::DANGER)
+    {
+        if (g_simulator->isFaultActive())
+        {
+            // 如果有故障注入，检查是否已达到目标
+            if (g_simulator->isFaultTargetReached())
+            {
+                shouldStop = true;
+            }
+        }
+        else
+        {
+            // 如果是自然发生的故障，立即停车
+            shouldStop = true;
+        }
+    }
+
+    if (shouldStop)
+    {
+        // 只有在非停车且非关闭状态下才执行，避免重复触发
+        if (!g_simulator->isStopping() && data.systemState != SystemState::OFF)
+        {
+            std::cout << "\n========================================" << std::endl;
+            std::cout << "!!! CRITICAL DANGER DETECTED !!!" << std::endl;
+            std::cout << "!!! INITIATING EMERGENCY SHUTDOWN !!!" << std::endl;
+            std::cout << "========================================\n"
+                      << std::endl;
+
+            g_logger->recordEvent(data.timestamp, "CRITICAL DANGER: EMERGENCY SHUTDOWN INITIATED");
+            g_simulator->stopEngine();
+        }
+    }
+
     // 4. 更新告警计时器
     g_alertManager->updateTimers(deltaTime);
 
@@ -367,10 +404,10 @@ void update(double deltaTime)
         g_logger->recordAlert(alert.timestamp, alert);
     }
 
-    // 6. 记录数据到CSV（每1秒记录一次）
+    // 6. 记录数据到CSV（每5ms记录一次）
     static double dataLogTimer = 0.0;
     dataLogTimer += deltaTime;
-    if (dataLogTimer >= 1.0)
+    if (dataLogTimer >= 0.005)
     {
         g_logger->recordData(data.timestamp, data);
         dataLogTimer = 0.0;
